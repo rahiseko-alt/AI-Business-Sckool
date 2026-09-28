@@ -100,13 +100,13 @@ def argmax_unique(counter):
 
 
 # ---- 1人分の回答を作る ----
-def person(rng, *, attended, country, scene_bias, slot_bias, sns_bias, hour_bias, star_trap):
+def person(rng, *, attended, country, scene_bias, slot_bias, sns_bias, hour_bias, star_trap, x_boost=False):
     a = {"q1": rng.choice(["ミン", "アン", "リオ", "ソラ", "ハル", "ナナ", "ケイ", "ルカ", "トモ", "ユイ",
                             "ジョー", "マイ", "カイ", "レン", "サム", "ニコ", "ビビ", "タオ", "ララ", "ポン"])}
     a["q2"] = "はい" if attended else "いいえ"
     a["q3"] = country
     chosen = [s for s in SNS if rng.random() < {"LINE": 0.9, "YouTube": 0.45}.get(s, 0.25)
-              + (0.45 if s == sns_bias else 0)]
+              + (0.45 if s == sns_bias else 0) + (0.55 if (x_boost and s == "X") else 0)]
     if not chosen:
         chosen = ["LINE"]
     a["q4"] = ", ".join(chosen)
@@ -215,7 +215,7 @@ def make_version(no):
                            sns_bias=rng.choice(["LINE", "YouTube", "X"]), hour_bias=rng.choice([8, 18]), star_trap=0)
             else:
                 a = person(rng, attended=False, country=country, scene_bias=scene_t, slot_bias=slot_t,
-                           sns_bias=sns_t, hour_bias=hour_t, star_trap=0.35)
+                           sns_bias=sns_t, hour_bias=hour_t, star_trap=0.35, x_boost=(no % 3 == 0))
             ts = OPEN + dt.timedelta(minutes=rng.randrange(0, int((CLOSE - OPEN).total_seconds() // 60)))
             people.append([ts, f"u{i + 1:03d}@example.com", a])
         # 罠: 日本出身（対象外）を2〜3人
@@ -229,18 +229,18 @@ def make_version(no):
             records.append((dt.datetime(2026, 12, 1, rng.randrange(0, 10), rng.randrange(60)),
                             f"u{n_unique + j + 1:03d}@example.com", a))
         # 罠: 重複（同じ人が前に一度出した古い回答）3件。古い方は「いいえ」で、別の場面・時間を選んでいる
-        for p in rng.sample([p for p in people if p[2]["q3"] != "日本"], 3):
+        for p in rng.sample([p for p in people if p[2]["q3"] != "日本" and p[0] > OPEN + dt.timedelta(hours=6)], 3):
             a = person(rng, attended=False, country=p[2]["q3"], scene_bias=scene_a, slot_bias=slot_a,
                        sns_bias="X", hour_bias=hour_t, star_trap=0.8)
             a["q1"] = p[2]["q1"]
-            records.append((p[0] - dt.timedelta(hours=rng.randrange(2, 48)), p[1], a))
+            gap = min(48, int((p[0] - OPEN).total_seconds() // 3600))
+            records.append((p[0] - dt.timedelta(hours=rng.randrange(2, gap)), p[1], a))
         # 罠: 運営のテスト送信2件（開始前）
         for j in range(2):
             a = person(rng, attended=bool(j), country="その他", scene_bias=scene_a, slot_bias=slot_a,
                        sns_bias="LINE", hour_bias=9, star_trap=1)
             a["q1"] = "テスト"
             records.append((dt.datetime(2026, 11, 19, 17, 10 + j * 7), STAFF, a))
-        records = [r for r in records if r[0] >= dt.datetime(2026, 11, 19)]
         records.sort(key=lambda r: r[0])
         table = [dict(zip(HEADER, to_row(*r))) for r in records]
         rows = [(i + 2, r) for i, r in enumerate(table)]  # スプレッドシートの行番号（1行目は見出し）
