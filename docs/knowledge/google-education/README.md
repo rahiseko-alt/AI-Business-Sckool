@@ -19,6 +19,7 @@
 | [07-digital-skills-citizenship-ai-literacy.md](07-digital-skills-citizenship-ai-literacy.md) | Applied Digital Skills、Be Internet Awesome、AI リテラシー資料、Gemini 認定 | 一部 | 無料 |
 | [08-google-skills-cloud-genai.md](08-google-skills-cloud-genai.md) | Google Skills（旧 Cloud Skills Boost）「生成 AI の概要」パス | あり | 一部無料 |
 | [09-japan-specific.md](09-japan-specific.md) | Grow with Google Japan、Gemini アカデミー、リスキリングコンソーシアム、学生特典 | あり | — |
+| [10-smartphone-feasibility.md](10-smartphone-feasibility.md) | スマホ（Android/iPhone）× 個人無料アカウントで各機能が使えるか（フォーム、スプレッドシート、ドライブ、Gemini、Meet、YouTube ほか） | あり | — |
 
 ## 重要な変化（2026-09-28 時点）
 - NotebookLM は 2026年7月16日に **Gemini Notebook** へ改称
