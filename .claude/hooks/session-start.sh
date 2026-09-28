@@ -1,7 +1,8 @@
 #!/bin/sh
 # 会話開始時に自動で読み込まれる内容。
 #   1. 進め方と説明のルール      docs/agents/flow-map.md
-#   2. 引き継ぎメモの直近 SHOW 件 docs/agents/handover.md
+#   2. 決定事項の正             docs/drafts/current-state.md
+#   3. 引き継ぎメモの直近 SHOW 件 docs/agents/handover.md
 # 読み込む件数と保存上限の正はこのファイル。文書側に数字を重複させない。
 set -u
 
@@ -11,6 +12,12 @@ SHOW=2   # 会話開始時に読み込む件数
 dir="${CLAUDE_PROJECT_DIR:-.}"
 
 [ -f "$dir/docs/agents/flow-map.md" ] && cat "$dir/docs/agents/flow-map.md"
+
+if [ -f "$dir/docs/drafts/current-state.md" ]; then
+  echo
+  echo "--- 決定事項の正（docs/drafts/current-state.md、常にこれを見る）---"
+  cat "$dir/docs/drafts/current-state.md"
+fi
 
 f="$dir/docs/agents/handover.md"
 [ -f "$f" ] || exit 0
