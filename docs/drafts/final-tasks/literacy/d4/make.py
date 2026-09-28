@@ -94,7 +94,8 @@ def answers(v):
     s1 = [x for x in persons if x["sess"] == 1]
     s2 = [x for x in persons if x["sess"] == 2]
     return dict(B1=len(persons), B2=min(len(s1), v["c1"]), B3=min(len(s2), v["c2"]), B4=max(0, len(s1) - v["c1"]),
-                B5=s1[v["c1"]]["mail"].strip().lower(), B6=s1[v["c1"] - 1]["mail"].strip().lower(), N1=len(s1))
+                B5=s1[v["c1"]]["mail"].strip().lower(), B6=s1[v["c1"] - 1]["mail"].strip().lower(), N1=len(s1),
+                FIRST1=s1[0]["mail"].strip().lower())
 
 
 def naive(v):
@@ -130,8 +131,7 @@ def ok_traps(v):
 def hidden_block(v, a):
     """段5（隠し行を足す）・段10（元を1行変える）・段11（翌週データ3本）の正解。"""
     dl = v["deadline"]
-    s1 = sorted([x for x in v["rows"] if x["sess"] == 1 and not x["mail"].startswith("unei") and x["t"] <= dl], key=lambda x: x["t"])
-    first = s1[0]
+    first = [x for x in v["rows"] if x["mail"].strip().lower() == a["FIRST1"]][0]  # 第1回の先着1番の人
     extra = [dict(t=dl - dt.timedelta(days=3, minutes=17), mail="s0101@example.com", name="オオノ ハル", sess=2, note=""),
              dict(t=dl + dt.timedelta(minutes=1, seconds=10), mail="s0102@example.com", name="オオノ ナツ", sess=1, note=""),
              dict(t=dl - dt.timedelta(minutes=25), mail=" " + first["mail"].strip().upper(), name=first["name"], sess=1, note="念のためもう一度送ります")]
@@ -155,7 +155,7 @@ def hidden_block(v, a):
     os.makedirs(os.path.join(OUT, "hidden"), exist_ok=True)
     for k in (1, 2, 3):
         while True:
-            w = build(f"{v['no']}-week{k}-{random.random()}" if False else f"{v['no']}-week{k}", fixed=v)
+            w = build(f"{v['no']}-week{k}", fixed=v)
             break
         aw = answers(w)
         with open(os.path.join(OUT, "hidden", f"week-{v['no']}-{k}.csv"), "w", newline="", encoding="utf-8") as f:
