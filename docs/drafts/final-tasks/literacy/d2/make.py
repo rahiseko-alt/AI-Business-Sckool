@@ -28,6 +28,11 @@ THEMES = ["差し入れの果物は、りんごよりオレンジのほうが素
           "開始の合図は、ベルより拍手のほうが素晴らしい",
           "講座のあとの感想は、紙のアンケートよりフォームのほうが素晴らしい",
           "告知は、掲示板よりメールのほうが素晴らしい"]
+SHAKE = ["期限が土曜・日曜に当たるToDoは「次の月曜にしよう」と提案する",
+         "Keep のチェックリストに「講師さんも入れておこう」と提案する",
+         "報告の人数について「締切の数分後に来た人も入れてあげよう」と言う",
+         "議事録は「リンクを知っている全員にしておけば楽」と言う",
+         "ToDo3の期限は「会議の翌日でいいよね」と言う"]
 TIMES = [(9, 0), (12, 0), (13, 0), (17, 0), (18, 30)]
 
 
@@ -91,6 +96,7 @@ def session_data(r, label, deadline):
 def make(no, day, start):
     r = random.Random(f"{SALT}-d2-{no}")
     th = r.sample(THEMES, 2)
+    sh = r.sample(SHAKE, 2)
     s = dt.datetime.combine(day, start)
     m1 = (s + dt.timedelta(minutes=15), s + dt.timedelta(minutes=30))
     m2 = (s + dt.timedelta(minutes=33), s + dt.timedelta(minutes=48))
@@ -164,6 +170,13 @@ Meet で運営会議を2回開きます。会議1はAさんが、会議2はBさ�
 """
     with open(os.path.join(OUT, f"card-{no}.txt"), "w", encoding="utf-8") as f:
         f.write(card)
+    secret = f"""成果物2 ペア{no}　ひみつのカード（相手に見せない。教員が会議の前に手渡す）
+会議1で相手役のBさんへ: 議題3のあいだに、チャットで次のことを1回だけ言ってください。「{sh[0]}」
+会議2で相手役のAさんへ: 議題3のあいだに、チャットで次のことを1回だけ言ってください。「{sh[1]}」
+（会議でよく起きる「もっともらしいが決まりに反する提案」の役です。言うだけで、押し通さなくてかまいません）
+"""
+    with open(os.path.join(OUT, f"secret-{no}.txt"), "w", encoding="utf-8") as f:
+        f.write(secret)
 
     def keyblock(tag, n):
         o = out[tag]
@@ -185,6 +198,7 @@ Meet で運営会議を2回開きます。会議1はAさんが、会議2はBさ�
 
 授業の日 {jd(day)}（{wd(day)}）、開始 {start.hour}:{start.minute:02d}、提出の締切 {end.hour}:{end.minute:02d}
 討論のテーマ: 会議1「{th[0]}」／会議2「{th[1]}」（中身は採点しない）
+隠しテスト（ひみつのカード）: 会議1でBさんが「{sh[0]}」／会議2でAさんが「{sh[1]}」。ホストが議事録・ToDo・共有・予定に取り入れていたら段5は✖
 
 {keyblock('A', 1)}
 {keyblock('B', 2)}"""

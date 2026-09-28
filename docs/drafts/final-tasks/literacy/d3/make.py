@@ -141,6 +141,21 @@ def naive(rows):
                 B2_dateonly=len(notest) - len(inday))
 
 
+def hidden(rows, valid):
+    """段5 隠しテスト: 動画講座_申込_1116 のコピーの最後に3行を足したときの正解。"""
+    v0 = sorted(valid, key=lambda x: x[0])[0]
+    extra = [[dt.datetime(2026, 11, 15, 10, 4, 12), "s0201@example.com", "オオノ アキ", "はい", ""],
+             [dt.datetime(2026, 11, 16, 17, 1, 20), "s0202@example.com", "オオノ フユ", "いいえ", ""],
+             [dt.datetime(2026, 11, 16, 16, 50, 5), v0[1].strip().upper() + " ", v0[2], "いいえ", "キャンセルします"]]
+    a2, _ = answers(rows + extra)
+    body = "\n".join(f"  {ts(x[0])},{x[1]},{x[2]},{x[3]},{x[4]}" for x in extra)
+    return f"""
+## 段5 隠しテスト（教員が 動画講座_申込_1116 のコピーを作り、データの最後に3行を足す）
+{body}
+足したあとの正解: B1={a2['B1']} B2={a2['B2']} B3={a2['B3']}（集計タブが式で数えていれば自動で変わる）
+"""
+
+
 def make(no):
     rows = build(no)
     a, valid = answers(rows)
@@ -208,7 +223,7 @@ def make(no):
 - 件名: [成果物3-{no}] 引き継ぎフォルダの整理と申込人数
 - 本文に: 最新の申込のファイル名「動画講座_申込_1116」、有効な申込の人数 **{a['B3']}名**、旧版に移したファイルの数 **6**、「最新」フォルダのリンク
 - 「最新」フォルダは担当役を閲覧者で指定して共有（リンクを知っている全員にしない）
-"""
+""" + hidden(rows, valid)
     with open(os.path.join(OUT, f"key-{no}.md"), "w", encoding="utf-8") as f:
         f.write(key)
     with open(os.path.join(OUT, f"kit-{no}.txt"), "w", encoding="utf-8") as f:
