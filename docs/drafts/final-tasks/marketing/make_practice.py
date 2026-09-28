@@ -158,13 +158,19 @@ def survey(no, cfg):
     scene_t, scene_a = cfg["scenes"][(no - 1) % 4], cfg["scenes"][(no + 1) % 4]
     slots = [(d, t) for d in cfg["days"] for t in cfg["times"]]
     slot_t, slot_a = slots[(no * 2) % len(slots)], slots[(no * 2 + len(slots) // 2) % len(slots)]
+    slot_2 = None
+    if cfg.get("competitor"):  # 最多の時間と2番目の時間を番号で決める（競合ルールの答えが偏らないように）
+        pick = [("平日", "昼"), ("土日", "夜")][no % 2]
+        top = [pick, pick, ("土日", "昼"), ("平日", "夜")][no % 4]
+        slot_t, slot_2 = top, (None if top == pick else pick)
+        slot_a = next(x for x in slots if x not in (slot_t, slot_2))
     sns_t = cfg["carousel_sns"][(no - 1) % len(cfg["carousel_sns"])] if cfg.get("carousel_sns") else None
     hour_t = [21, 22, 12, 20, 23, 7][(no - 1) % 6]
     for _ in range(20000):
         rng = random.Random(base.random())
         n_unique = rng.randint(*cfg["n_unique"])
 
-        def person(attended, sbias, slbias, snsbias, hbias, star_trap):
+        def person(attended, sbias, slbias, snsbias, hbias, star_trap, slbias2=None):
             a = {"nick": rng.choice(NICK), "att": "はい" if attended else "いいえ",
                  "country": rng.choice(COUNTRIES[1:])}
             a["sns"] = ", ".join([s for s in cfg["sns"] if rng.random() < {"LINE": 0.9, "YouTube": 0.45}.get(s, 0.25)
@@ -174,7 +180,8 @@ def survey(no, cfg):
                 r = rng.random()
                 a["q5_" + sc] = "よく困る" if r < p else ("ときどき困る" if r < p + 0.4 * (1 - p) else "困らない")
             for d in cfg["days"]:
-                a["q6_" + d] = ", ".join(t for t in cfg["times"] if rng.random() < (0.72 if (d, t) == slbias else 0.2))
+                a["q6_" + d] = ", ".join(t for t in cfg["times"] if rng.random() < (
+                    0.72 if (d, t) == slbias else 0.5 if (d, t) == slbias2 else 0.2))
             a["scale"] = str(rng.choice([1, 2, 2, 3, 3, 4, 5]))
             a["star"] = str(rng.choice([3, 4, 4, 4, 5, 5])) if attended else (
                 str(rng.choice([1, 2, 2, 3])) if rng.random() < star_trap else "")
@@ -188,7 +195,7 @@ def survey(no, cfg):
         for i in range(n_unique):
             att = rng.random() < 0.4
             a = (person(True, scene_a, slot_a, rng.choice(["LINE", "YouTube"]), rng.choice([8, 18]), 0) if att
-                 else person(False, scene_t, slot_t, sns_t, hour_t, 0.35))
+                 else person(False, scene_t, slot_t, sns_t, hour_t, 0.35, slot_2))
             people.append([ts_between(rng, cfg["open"], cfg["close"]), f"u{i + 1:03d}@example.com", a])
         for p in rng.sample(people, rng.choice([2, 3])):
             p[2]["country"] = "日本"
@@ -215,7 +222,13 @@ def survey(no, cfg):
               and k["slot_all"] not in (None, slot_t) and k["star"] != k["star_all"] and k["star"] != k["star_raw"]
               and k["n_tgt"] != k["n_tgt_raw"] and k["n_tgt"] >= 15 and len(k["stars"]) >= 5)
         if cfg.get("carousel_sns"):
-            ok = ok and k["sns"] == sns_t and k["line"] > k["sns_n"] and k["hour"] == hour_t
+            ok = ok and k["sns"] == sns_t and k["line"] > k["sns_n"]
+        if cfg.get("q_time"):
+            ok = ok and k["hour"] == hour_t
+        if cfg.get("competitor"):  # 4つの時間の人数がすべて違う（順位が1通りに決まる）
+            ok = ok and len(set(k["sl"].values())) == len(k["sl"])
+            if slot_2:
+                ok = ok and sorted(k["sl"], key=lambda x: -k["sl"][x])[1] == "".join(slot_2)
         if ok:
             return rows, k
     raise RuntimeError(no)
@@ -266,18 +279,21 @@ def analyze(rows, cfg, clean=True):
         k["sns"] = top1({s: cnt[s] for s in cfg["carousel_sns"]})
         k["sns_n"] = cnt.get(k["sns"], 0)
         k["line"] = cnt["LINE"]
+        if k["sns"] is None:
+            return None
+    if cfg.get("q_time"):
         hours = {}
         for r in tgt:
             h = int(r[ix[cfg["q_time"]]].split(":")[0])
             hours[h] = hours.get(h, 0) + 1
         k["hour"] = top1(hours)
-        if k["sns"] is None or k["hour"] is None:
+        if k["hour"] is None:
             return None
     return k
 
 
 # ---- d3: 日本語講座の希望調査（9問） ----
-D3 = dict(salt=30, scenes=["敬語", "漢字", "聞き取り", "電話"], days=["平日", "土日"], times=["昼", "夜"],
+D3 = dict(salt=30, competitor=True, scenes=["敬語", "漢字", "聞き取り", "電話"], days=["平日", "土日"], times=["昼", "夜"],
           sns=["Instagram", "TikTok", "Facebook", "X", "YouTube", "LINE"], n_unique=(32, 38),
           open=dt.datetime(2026, 11, 2, 9), close=dt.datetime(2026, 11, 15, 23, 59, 59), date_from=dt.date(2026, 12, 1),
           q_att="日本語講座に来たことがありますか", q_country="出身の国・地域を選んでください",
@@ -294,7 +310,7 @@ D3_DATES = {("平日", "昼"): (dt.date(2026, 12, 9), "13:00〜14:30"), ("平日
 
 # ---- d4: アルバイトの日本語講座（11問） ----
 D4 = dict(salt=40, scenes=["面接", "電話", "接客", "シフトの相談"], days=["平日", "土曜", "日曜"], times=["午前", "午後", "夜"],
-          sns=["Instagram", "TikTok", "Facebook", "YouTube", "LINE"], carousel_sns=["Instagram", "TikTok", "Facebook"],
+          sns=["Instagram", "TikTok", "Facebook", "YouTube", "LINE"],
           n_unique=(36, 42), open=dt.datetime(2026, 12, 1, 9), close=dt.datetime(2026, 12, 14, 23, 59, 59),
           date_from=dt.date(2027, 2, 1),
           q_att="アルバイトの日本語講座に来たことがありますか", q_country="出身の国・地域を選んでください",
@@ -327,8 +343,23 @@ def d4_first(slot):
     raise ValueError(slot)
 
 
+# 材料D（Googleマップの写し・架空）: 強い競合＝評価4.0以上かつ口コミ20件以上
+D3_COMPETITORS = [("あおば日本語教室", 4.9, 3, "土日夜"), ("さくら日本語スクール", 4.3, 41, "土日昼"),
+                  ("みなと語学センター", 3.6, 58, "平日昼"), ("ひまわり日本語サロン", 4.1, 12, "平日昼"),
+                  ("つばめ日本語クラブ", 4.0, 20, "平日夜")]
+
+
+def d3_pick(sl, strong_rule):
+    strong = {c[3] for c in D3_COMPETITORS if strong_rule(c)}
+    order = sorted(sl, key=lambda x: -sl[x])
+    return next((x for x in order if x not in strong), "どこも開けない")
+
+
 def d3(no):
     rows, k = survey(no, D3)
+    sl = k["sl"]
+    pick = d3_pick(sl, lambda c: c[1] >= 4.0 and c[2] >= 20)
+    k["slot"] = next((d, t) for d in D3["days"] for t in D3["times"] if d + t == pick)
     date, time = D3_DATES[k["slot"]]
     key = {"番号": f"{no:02d}", "B1_有効回答": k["n_valid"], "B2_ターゲット": k["n_tgt"], "B3_苦手": k["scene"],
            "B4_よく困る人数": k["sc"][k["scene"]], "B5_割合%": int(rhu(k["sc"][k["scene"]] / k["n_tgt"] * 100)),
@@ -338,22 +369,55 @@ def d3(no):
            "除外した行": " ".join(map(str, k["excl"])),
            "誤_掃除なしB1": k["n_raw"], "誤_掃除なしB2": k["n_tgt_raw"], "誤_全員で数えた苦手": k["scene_all"],
            "誤_全員で数えた時間帯": "".join(k["slot_all"]), "誤_いいえの星も入れた満足度": str(k["star_all"]),
-           "誤_掃除なし満足度": str(k["star_raw"])}
+           "誤_掃除なし満足度": str(k["star_raw"]),
+           "誤_競合を見ない時間帯": max(sl, key=sl.get),
+           "誤_口コミ3件も強いとした時間帯": d3_pick(sl, lambda c: c[1] >= 4.0),
+           "誤_4.0と20件を外した時間帯": d3_pick(sl, lambda c: c[1] > 4.0 and c[2] > 20)}
     return rows, key
+
+
+# 材料（GA4 の写し・架空）: 番号ごとに、カフェのサイトに SNS から来たユーザー数とセッション数
+GA4_SRC = ["instagram.com", "tiktok.com", "facebook.com", "line.me", "youtube.com"]
+GA4_NAME = {"instagram.com": "Instagram", "tiktok.com": "TikTok", "facebook.com": "Facebook"}
+
+
+def ga4(no):
+    rng = random.Random(SALT * 50 + no)
+    car = ["instagram.com", "tiktok.com", "facebook.com"]
+    u_top, s_top = car[(no - 1) % 3], car[no % 3]
+    third = next(c for c in car if c not in (u_top, s_top))
+    U = rng.randint(180, 320)
+    users = {u_top: U, s_top: U - rng.randint(8, 40), third: U - rng.randint(60, 120),
+             "line.me": U + rng.randint(30, 90), "youtube.com": rng.randint(40, 90)}
+    sess = {u_top: int(users[u_top] * rng.uniform(1.15, 1.35)), s_top: int(users[s_top] * rng.uniform(1.9, 2.4)),
+            third: int(users[third] * rng.uniform(1.2, 1.6)), "line.me": int(users["line.me"] * rng.uniform(1.3, 1.6)),
+            "youtube.com": int(users["youtube.com"] * rng.uniform(1.1, 1.3))}
+    assert sess[s_top] > sess[u_top] and users["line.me"] > users[u_top] > users[s_top] > users[third]
+    rows = [[f"{src} / referral", users[src], sess[src], f"{rng.uniform(45, 75):.1f}%"] for src in GA4_SRC]
+    rows.sort(key=lambda r: -r[2])  # GA4 の初期表示のように、セッションの多い順に並べる
+    return rows, GA4_NAME[u_top], GA4_NAME[s_top]
 
 
 def d4(no):
     rows, k = survey(no, D4)
     date = d4_first(k["slot"])
+    g_rows, g_user, g_sess = ga4(no)
+    os.makedirs(os.path.join(HERE, "d4", "data"), exist_ok=True)
+    with open(os.path.join(HERE, "d4", "data", f"ga4-{no:02d}.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["セッションの参照元 / メディア", "ユーザー", "セッション", "エンゲージメント率"])
+        w.writerows(g_rows)
     key = {"番号": f"{no:02d}", "B1_有効回答": k["n_valid"], "B2_ターゲット": k["n_tgt"], "B3_場面": k["scene"],
            "B4_よく困る人数": k["sc"][k["scene"]], "B5_割合%": int(rhu(k["sc"][k["scene"]] / k["n_tgt"] * 100)),
-           "B6_投稿先": k["sns"], "B7_投稿時間帯": f"{k['hour']}時台",
+           "B6_投稿先": g_user, "B7_投稿時間帯": f"{k['hour']}時台",
            "B8_曜日時間帯": "".join(k["slot"]), "B9_選んだ人数": k["sl"]["".join(k["slot"])],
            "B10_満足度": str(k["star"]), "B11_満足度の人数": len(k["stars"]),
            "B12_最初の回": f"{fd(date)} {D4_TIME[k['slot'][1]]}", "B13_申込締切": fd(date - dt.timedelta(days=4)),
            "除外した行": " ".join(map(str, k["excl"])),
            "誤_掃除なしB1": k["n_raw"], "誤_掃除なしB2": k["n_tgt_raw"], "誤_全員で数えた場面": k["scene_all"],
+           "グラフ_ターゲットのよく困る人数": " ".join(f"{s}{k['sc'][s]}" for s in D4["scenes"]),
            "誤_全員で数えた時間帯": "".join(k["slot_all"]), "誤_LINEを含めた投稿先": "LINE",
+           "誤_セッションで選んだ投稿先": g_sess,
            "誤_いいえの星も入れた満足度": str(k["star_all"]), "誤_掃除なし満足度": str(k["star_raw"])}
     return rows, key
 

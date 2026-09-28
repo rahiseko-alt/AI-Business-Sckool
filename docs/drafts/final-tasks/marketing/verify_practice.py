@@ -92,7 +92,14 @@ def survey(level, no, close, scene_q, slot_q):
             for t in r[i].split(", "):
                 if t:
                     sl[head[i].split("[")[1][:-1] + t] += 1
-    slot, sln = only_top(sl)
+    assert len(set(sl.values())) == len(sl) or level == "d4"
+    if level == "d3":
+        # 材料D（マップの写し）で、評価4.0以上かつ口コミ20件以上の教室がある時間は避ける
+        strong = {"土日昼", "平日夜"}  # さくら 4.3・41件、つばめ 4.0・20件（あおば 4.9・3件、ひまわり 4.1・12件は該当しない）
+        slot = [x for x, _ in sl.most_common() if x not in strong][0]
+        sln = sl[slot]
+    else:
+        slot, sln = only_top(sl)
     si = col(head, "前回の講座の満足度")[0]
     stars = [int(r[si]) for r in keep if r[3] == "はい" and r[si]]
     return head, keep, tgt, s, sn, slot, sln, stars
@@ -116,8 +123,10 @@ D4_OK = {"平日午前": ["2/4", "2/5"], "平日午後": ["2/1", "2/2"], "平日
 
 def v_d4(no):
     head, keep, tgt, s, sn, slot, sln, stars = survey("d4", no, "2026/12/14 23:59:59", "アルバイトの次の場面", "参加しやすい時間")
-    si = col(head, "ふだん使うSNS")[0]
-    sns, _ = only_top(Counter(x for r in tgt for x in r[si].split(", ") if x in ("Instagram", "TikTok", "Facebook")))
+    with open(os.path.join(HERE, "d4", "data", f"ga4-{no}.csv"), encoding="utf-8") as f:
+        g = list(csv.reader(f))[1:]
+    name = {"instagram.com": "Instagram", "tiktok.com": "TikTok", "facebook.com": "Facebook"}
+    sns = name[max((r for r in g if r[0].split(" ")[0] in name), key=lambda r: int(r[1]))[0].split(" ")[0]]
     ti = col(head, "SNSをいちばんよく見る時刻")[0]
     hr, _ = only_top(Counter(r[ti].split(":")[0] for r in tgt))
     m, dd = map(int, D4_OK[slot][0].split("/"))
