@@ -305,6 +305,8 @@ def make_version(no):
         "B11_満足度の人数": len(stars),
         "B12_最初の回": f"{fmt_date(date)} {SLOT_TIME[SL[1]]}",
         "B13_申込締切": fmt_date(deadline),
+        "サイズ": {"Instagram": "1080×1350（縦長4:5）", "TikTok": "1080×1920（縦9:16）", "Facebook": "1080×1080（正方形）"}[SN],
+        "グラフ_ターゲットのよく困る人数": " ".join(f"{s}{sc_t[s]}" for s in SCENES),
         "B14_除外した行": " ".join(str(n) for n in sorted(ok["excluded"])),
         "除外の内訳": " ".join(f"{n}:{why}" for n, why in sorted(ok["excluded"].items())),
         # よくある誤り（採点で「どの罠で落ちたか」を見分ける）

@@ -76,6 +76,7 @@ def recount(no):
         "B10_満足度": str(avg.quantize(Decimal("0.1"), ROUND_HALF_UP)), "B11_満足度の人数": str(len(stars)),
         "B12_最初の回": f"{first_s} {TIME[sl[2:]]}", "B13_申込締切": dl,
         "B14_除外した行": " ".join(str(n) for n, _ in drop),
+        "グラフ_ターゲットのよく困る人数": " ".join(f"{x}{scene[x]}" for x in ("アルバイト", "学校", "病院", "役所")),
     }
 
 
