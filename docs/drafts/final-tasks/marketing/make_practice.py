@@ -70,7 +70,7 @@ def d1(no):
     rng = random.Random(SALT * 10 + no)
     t, s = D1_OPT[(no - 1) % 5], D1_OPT[no % 5]
     for _ in range(5000):
-        n = rng.randint(11, 14)
+        n = rng.randint(10, 17)
         c = rng.randint(n // 2, n // 2 + 3)
         cnt = {o: rng.randint(1, c - 2) for o in D1_OPT}
         cnt[t], cnt[s] = c, c - 1
