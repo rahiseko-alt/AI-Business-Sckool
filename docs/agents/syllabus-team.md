@@ -13,8 +13,10 @@
 | 【一般】 | シラバス作成の一般知識・法令・研究 | `docs/knowledge/syllabus/` |
 | 【Google】 | Google の教育・AI講座 | `docs/knowledge/google-education/` |
 | 【書式】 | 提出先スプレッドシートの構造と授業回数 | `docs/knowledge/template/` |
+| 【経緯】 | 利用者の過去の検討ログ。利用者の決定とAIの提案を区別する | `docs/knowledge/history/` |
 
 - 学校と教員の方針が食い違うときは、どちらかに寄せて丸めない。両方を印付きで示し、判断を利用者に返す。
+- 【経緯】のうち利用者が決めたこと（`docs/knowledge/history/README.md`「利用者の決定」）は、方針として扱う。AIの提案は案にすぎない。
 - 出典に無いことを書くときは【曖昧】を付ける。確証が無ければ「わからない」と書く。
 - 生徒の個人情報（氏名・学籍番号・個別の成績）は扱わない。
 
