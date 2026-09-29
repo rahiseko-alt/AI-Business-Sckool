@@ -39,7 +39,7 @@
 
 ## 使わない機能と理由
 
-- **Gem → スキル**（第2章8）: 2026年11月にスキルへ移る。公式ではスキルは契約なしで使え、18歳以上が条件（学生は全員成人）。報道の「有料のみ」は公式と食い違う【曖昧: 実機で確かめる】。この科目の成果物にはスキルが要る作業が無いので、使うかは未定。出典: https://support.google.com/gemini/answer/18560919
+- **Gem → スキル**（第2章8）: 2026年11月にスキルへ移る。公式ではスキルは契約なしで使え、18歳以上が条件（学生は全員成人）。報道の「有料のみ」は公式と食い違う【実機確認 2026-09-29: 利用者の無料アカウントの Gemini アプリのメニューに「スキル」は無かった。授業では使わない】
 - **動画（Veo3）**（第2章5）: 今の Gemini アプリの動画生成は有料プランだけ。出典: https://ai.zenken.co.jp/en/post/gemini-video-guide/ 【曖昧: Google 公式では未確認】
 - **ディープリサーチ**（第2章3）: この科目は「原文だけを正とする」課題なので、外の情報を集める機能は使わない（マーケの8回で扱う）
 - **第4章 Gemini in Google Workspace 全体**（Gmail・スプレッドシート・ドキュメント・スライド・ドライブ・Meet の中の Gemini）: 個人の Google アカウントでは Google AI Plus・Pro・Ultra（有料）が要る。学生は無料の個人アカウントなので、アプリの中の Gemini は使わず、Gemini アプリで作った文や式をアプリに貼る形にした。なお Gemini アプリの「連携アプリ（Google Workspace）」は無料で、Gemini アプリ側から Gmail・ドライブ・カレンダー・Keep を扱える（「アクティビティを保存」オンが条件）。Meet の「自動でメモを取る」も有料か学校・職場のアカウントだけ。出典: https://support.google.com/meet/answer/14754931?hl=ja 、https://one.google.com/about/articles/3-ways-to-use-google-ai-plans/ 【曖昧: 無料の Workspace Labs で試せるとの記事もあるが、2026年時点で使えるかは未確認】
