@@ -40,7 +40,7 @@ def build(seed, fixed=None):
     d1 = r.choice([dt.date(2026, 11, d) for d in range(16, 28) if dt.date(2026, 11, d).weekday() < 5])
     c1 = r.randint(8, 11)
     c2 = r.randint(10, 12)
-    if fixed:  # 翌週データ（段11）: 日程・定員は本番と同じにする
+    if fixed:  # 翌週データ（段8）: 日程・定員は本番と同じにする
         d1, c1, c2 = fixed["d1"], fixed["c1"], fixed["c2"]
     d2 = d1 + dt.timedelta(days=7)
     deadline = dt.datetime.combine(d1 - dt.timedelta(days=9), dt.time(17, 0))
@@ -129,7 +129,7 @@ def ok_traps(v):
 
 
 def hidden_block(v, a):
-    """段5（隠し行を足す）・段10（元を1行変える）・段11（翌週データ3本）の正解。"""
+    """段6（隠し行を足す）・段7（元を1行変える）・段8（翌週データ3本）の正解。"""
     dl = v["deadline"]
     first = [x for x in v["rows"] if x["mail"].strip().lower() == a["FIRST1"]][0]  # 第1回の先着1番の人
     extra = [dict(t=dl - dt.timedelta(days=3, minutes=17), mail="s0101@example.com", name="オオノ ハル", sess=2, note=""),
@@ -143,14 +143,14 @@ def hidden_block(v, a):
     def fmt(extra_rows):
         return "\n".join(f"  {ts(x['t'])},{x['mail']},{x['name']},第{x['sess']}回,{x['note']}" for x in extra_rows)
     out = f"""
-## 段5 隠しテスト（シートのコピーのタブ「データ」の最後に3行を足す）
+## 段6 隠しテスト（シートのコピーのタブ「データ」の最後に3行を足す）
 {fmt(extra)}
 足したあとの正解: B1={a5['B1']} B2={a5['B2']} B3={a5['B3']} B4={a5['B4']} B5={a5['B5']} B6={a5['B6']}
 
-## 段10 元を変える（シートのコピーで、{ts(conf['t'])} の {conf['mail']} の行の備考を「キャンセルします」に書き換える）
+## 段7 元を変える（シートのコピーで、{ts(conf['t'])} の {conf['mail']} の行の備考を「キャンセルします」に書き換える）
 変えたあとの正解: B1={a10['B1']} B2={a10['B2']} B3={a10['B3']} B4={a10['B4']} B5={a10['B5']} B6={a10['B6']}
 
-## 段11 翌週データ3本（hidden/week-NN-1〜3.csv を「データ」に貼り替える。日程・定員は同じ）
+## 段8 翌週データ3本（hidden/week-NN-1〜3.csv を「データ」に貼り替える。日程・定員は同じ）
 """
     os.makedirs(os.path.join(OUT, "hidden"), exist_ok=True)
     for k in (1, 2, 3):
@@ -164,7 +164,7 @@ def hidden_block(v, a):
             for x in w["rows"]:
                 wr.writerow([ts(x["t"]), x["mail"], x["name"], f"第{x['sess']}回", x["note"]])
         out += f"- week-{v['no']}-{k}: B1={aw['B1']} B2={aw['B2']} B3={aw['B3']} B4={aw['B4']} B5={aw['B5']} B6={aw['B6']}\n"
-    out += "\n（2026-09-29改訂）段は下から順に見て最初の✖で止める方式だったが、基礎＋独立採点に変更した（ADR 0001）。時間超過も「1分ごとに1段下げる」から「1分ごとに合計点（基礎を含む）から1点を引く（0点が下限）」に変えた\n"
+    out += "\n（2026-09-29改訂）段は下から順に見て最初の✖で止める方式だったが、基礎＋独立採点に変更した（ADR 0001）。時間超過も「1分ごとに1段下げる」から「1分ごとに合計点（基礎を含む）から1点を引く（0点が下限）」に変えた\n（2026-09-29改訂2）点を整数にし、本人の証拠を基礎に含めた\n"
     return out
 
 
