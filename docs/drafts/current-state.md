@@ -17,6 +17,8 @@
 
 **採点表の設計手順**: 満点の完成形から引き算で作る（下から足し算で項目を積まない）。理由と実例は`docs/adr/0001-scoring-tables-designed-by-subtraction.md`。
 
+**基本教材**: `docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章。目次のみ確認済み、本文は未取得【曖昧】。
+
 ## 1. 対象
 
 - 小齊平の後期3科目。マーケティング16回・AI演習（実践）18回・ビジネス情報リテラシー19回。1回100分

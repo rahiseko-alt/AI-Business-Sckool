@@ -21,6 +21,7 @@
 | [09-japan-specific.md](09-japan-specific.md) | Grow with Google Japan、Gemini アカデミー、リスキリングコンソーシアム、学生特典 | あり | — |
 | [10-smartphone-feasibility.md](10-smartphone-feasibility.md) | スマホ（Android/iPhone）× 個人無料アカウントで各機能が使えるか（フォーム、スプレッドシート、ドライブ、Gemini、Meet、YouTube ほか） | あり | — |
 | [11-free-ai-features.md](11-free-ai-features.md) | Gemini アプリ・ChatGPT・Notion・Canva の無料プランで使える機能と上限、スマホ可否、授業での使い道と罠、再現性の比較 | あり | 無料枠 |
+| [12-gemini-business-guide-base-textbook.md](12-gemini-business-guide-base-textbook.md) | **基本教材**（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章の目次のみ確認済み。本文・出典URLは未取得【曖昧】 | 未確認 | 未確認 |
 
 ## 重要な変化（2026-09-28 時点）
 - NotebookLM は 2026年7月16日に **Gemini Notebook** へ改称
