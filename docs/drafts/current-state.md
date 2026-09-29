@@ -19,7 +19,7 @@
 
 **採点表の設計手順**: 満点の完成形から引き算で作る（下から足し算で項目を積まない）。理由と実例は`docs/adr/0001-scoring-tables-designed-by-subtraction.md`。この手順は作り直し後にも適用する。
 
-**基本教材**: `docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章。目次のみ確認済み、本文は未取得【曖昧】。シラバスの主軸（2026-09-29決定）。
+**基本教材**: `docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章。本文は古いので使わず、目次の節ごとに2026年9月時点の公式情報を当てる（利用者決定、2026-09-29）。調査結果は`docs/knowledge/google-education/13-base-textbook-current-2026-09.md`（NotebookLM→Gemini Notebook、Gem→スキル、第4章は無料では使えない等）。シラバスの主軸（2026-09-29決定）。
 
 ## 1. 対象
 
