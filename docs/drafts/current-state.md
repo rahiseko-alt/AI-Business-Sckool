@@ -9,15 +9,15 @@
 
 | 科目 | 成果物1〜4 | 成果物5（最終課題） | 回への割り付け | 正のファイル |
 | --- | --- | --- | --- | --- |
-| マーケティング（16回） | 完成・実地検証済み | 完成・実地検証済み | 完成 | `docs/drafts/final-tasks/marketing/README.md`・`schedule.md` |
-| AI演習（実践）（18回） | 完成・実地検証済み | 完成・実地検証済み | 完成 | `docs/drafts/final-tasks/ai/README.md`・`schedule.md` |
-| ビジネス情報リテラシー（19回） | **未着手** | 完成・実地検証済み | **無い** | `docs/drafts/final-tasks/literacy/README.md` |
+| マーケティング（16回） | 完成・実地検証済み（**基本教材の目次に合わせて作り直す方針、2026-09-29決定。未着手**） | 完成・実地検証済み（同上、作り直し対象） | 完成（同上、作り直し対象） | `docs/drafts/final-tasks/marketing/README.md`・`schedule.md` |
+| AI演習（実践）（18回） | 完成・実地検証済み（同上、作り直し対象） | 完成・実地検証済み（同上、作り直し対象） | 完成（同上、作り直し対象） | `docs/drafts/final-tasks/ai/README.md`・`schedule.md` |
+| ビジネス情報リテラシー（19回） | **未着手**（同上、作り直し対象） | 完成・実地検証済み（同上、作り直し対象） | **無い**（同上、作り直し対象） | `docs/drafts/final-tasks/literacy/README.md` |
 
-残る実質的な作業はリテラシー成果物1〜4と19回への割り付けだけ。この表を見ずに`docs/drafts/plan-v5.md`や古い提案だけで判断しない。
+**2026-09-29 重大決定**: 基本教材（`docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`）の目次を主軸に、**3科目全体のシラバスを作り直す**（利用者決定）。上の「完成・実地検証済み」は基本教材採用より前の状態であり、そのままでは使わない。まず基本教材の章立てと3科目・各回のマッピング案を作るところから再開する。`docs/drafts/plan-v5.md`は基本教材採用前の記録として参照するに留める。
 
-**採点表の設計手順**: 満点の完成形から引き算で作る（下から足し算で項目を積まない）。理由と実例は`docs/adr/0001-scoring-tables-designed-by-subtraction.md`。
+**採点表の設計手順**: 満点の完成形から引き算で作る（下から足し算で項目を積まない）。理由と実例は`docs/adr/0001-scoring-tables-designed-by-subtraction.md`。この手順は作り直し後にも適用する。
 
-**基本教材**: `docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章。目次のみ確認済み、本文は未取得【曖昧】。
+**基本教材**: `docs/knowledge/google-education/12-gemini-business-guide-base-textbook.md`（利用者決定、2026-09-29）。Geminiビジネス活用ガイド全366ページ、全6章。目次のみ確認済み、本文は未取得【曖昧】。シラバスの主軸（2026-09-29決定）。
 
 ## 1. 対象
 
