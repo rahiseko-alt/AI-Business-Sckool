@@ -18,7 +18,7 @@
 | 1 | 1章 1〜2 セリングとマーケティングの違い、ニーズに応える（p.12〜15） | 第2章1 基本操作、2 モデルの選び方 | 骨子（主張→理由→具体例・証拠→CTA）。フォームで3問（記述式・ラジオボタン・チェックボックス）。教員を編集者に追加 | 小テスト |
 | 2 | 3章 21〜22 ニーズ・ウォンツ、「ドリルでなく穴」＝ベネフィット（p.56〜59） | 第3章2 情報収集（回答の根拠を確かめる） | 成果物1の通し練習: 回答データのコピー → テスト送信に印 → `COUNTIF` → スライド2枚 → 画面録画 → 共有 | 小テスト、練習 |
 | 3 | — | — | **成果物1 本番（40分）**。正解の見方と振り返り | **成果物1** |
-| 4 | 7章 COLUMN AIDMA と AISAS（p.154）、2章 18〜20 リサーチの手法（p.48〜53）、1章 4 4つのP（p.18〜19）、5章 41 製品の5つのレベル（p.100〜101）、5章 47 価格設定の6段階（p.112〜113） | 第4章5 スプレッドシート×Gemini | フォーム6形式。重複の見分け。`ROUND` で割合 | 小テスト |
+| 4 | 7章 COLUMN AIDMA と AISAS（p.154）、2章 18〜20 リサーチの手法（p.48〜53）、1章 4 4つのP（p.18〜19）、5章 41 製品の5つのレベル（p.100〜101）、5章 47 価格設定の6段階（p.112〜113） | 第3章5 ITツール活用（Gemini アプリに式を作らせて貼る） | フォーム6形式。重複の見分け。`ROUND` で割合 | 小テスト |
 | 5 | 8章 71 SNSマーケティング（p.166〜167） | 第2章6 画像生成（Nano Banana） | Gemini で表紙。Canva 入門（サイズ、王冠マーク、見本文字、MP4）。締切の日付。成果物2の通し練習 | 小テスト、練習 |
 | 6 | — | — | **成果物2 本番（50分）** | **成果物2** |
 | 7 | 1章 5 STP（p.20〜21）、3章 26 ペルソナとカスタマー・ジャーニー（p.66〜67）、3章 30〜33 セグメンテーションとターゲティング（p.74〜81） | 第2章7 学習モード（STP を対話で深掘り） | ターゲットの絞り込み（`COUNTIFS`）、表形式の質問と星、`AVERAGEIFS`。除外4種を1列に。作業録画と合言葉 | 小テスト |
@@ -37,6 +37,7 @@
 - **Gem は使わない**: Gem は2026年11月17日から「スキル」に移され、スキルを作れるのは Google AI Pro・Ultra（有料）の人だけと報じられている。12回（1〜2月）には無料で作れないため、自己採点は普通のチャットに段表を貼る形にした。出典: https://9to5google.com/2026/09/27/gemini-gems-skills/ 、https://techcrunch.com/2026/09/28/google-is-killing-off-geminis-gems-in-favor-of-skills/
 - **Veo3 の動画は無料版では作れない**: 今の Gemini アプリの動画生成は有料プラン（AI Plus・Pro・Ultra）だけ。取り込まなかった判断で正しかった。出典: https://ai.zenken.co.jp/en/post/gemini-video-guide/ 【曖昧: Google 公式のページでは未確認】
 - **スケジュールされたタスク（予約アクション）は無料で使える**: 個人の Google アカウントなら無料で使え、スマホのアプリでも設定できる（順に公開中）。無料版は配信の数時間前に中身を作る。出典: https://support.google.com/gemini/answer/16316416?hl=ja
+- **アプリの中の Gemini（基本教材の第4章）は使わない**: 個人の Google アカウントでスプレッドシート等の中の Gemini を使うには有料プランが要る。4回は Gemini アプリに式を作らせて貼る形にした。出典: https://one.google.com/about/articles/3-ways-to-use-google-ai-plans/
 - **GA4 のデモ**: Google アカウントがあれば誰でも閲覧者として入れる。入口: https://analytics.google.com/analytics/index/demoaccount?appstate=/p213025502 （Web のストア）、https://analytics.google.com/analytics/index/demoaccount?appstate=/p153293282 （アプリ Flood-It!）。出典: https://support.google.com/analytics/answer/6367342?hl=ja
 - **Googleトレンド**: https://trends.google.co.jp/
 
