@@ -5,7 +5,8 @@
 - `marketing.json`・`ai.json`・`literacy.json`: 提出先シートの欄ごとの中身（正）
 - `build.py`: JSON から、提出先シートと同じ枠の `syllabus.xlsx`（3タブ）を作る。`python3 build.py docs/drafts/syllabus-sheets`
 - Google ドライブに、提出先シートと同じセル位置で値だけを入れたスプレッドシートを3つ作った（Google Sheets 連携が無いため、元のシートには直接書けない。利用者が貼り付ける）
-  - マーケティング: https://docs.google.com/spreadsheets/d/1F6koXSbJOvAW9zs2b0g-7rVx0VPFFUwiv0edDh63SnM/edit
-  - AI演習（実践）: https://docs.google.com/spreadsheets/d/1zfL09E_d867HBJQl6gFhXRamjw9WPigJUloOfiRpJa0/edit
-  - ビジネス情報リテラシー: https://docs.google.com/spreadsheets/d/1EvuvWBe9UPrYm5cOWIi2xvLAQV4ETT_gp_7Wi51RfsA/edit
+  - マーケティング: https://docs.google.com/spreadsheets/d/14iQHZbjYjZ87Fg6IJHh-gYYpejOzQrxxTug22tYWoL8/edit
+  - AI演習（実践）: https://docs.google.com/spreadsheets/d/1XAUhBMlb6LGm1FrIsFYDBoyGUlcF6LYTIXULJRRIt_0/edit
+  - ビジネス情報リテラシー: https://docs.google.com/spreadsheets/d/1YA7NeopKQxjdN-WbtaKcw9OBNw1BZysIEgIKHvhP_Bs/edit
 - 未確定: 単位数（学校確認中）、リテラシーの後期の科目名（資料では「ビジネスIT」に変わる記載あり）
+- 2026-09-29: 3科目とも要点だけに短くした版に差し替え、旧版はゴミ箱へ（利用者承認）
