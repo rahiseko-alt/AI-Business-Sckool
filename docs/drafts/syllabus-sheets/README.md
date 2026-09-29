@@ -10,3 +10,4 @@
   - ビジネス情報リテラシー: https://docs.google.com/spreadsheets/d/1YA7NeopKQxjdN-WbtaKcw9OBNw1BZysIEgIKHvhP_Bs/edit
 - 未確定: 単位数（学校確認中）、リテラシーの後期の科目名（資料では「ビジネスIT」に変わる記載あり）
 - 2026-09-29: 3科目とも要点だけに短くした版に差し替え、旧版はゴミ箱へ（利用者承認）
+- 2026-09-29: Google Sheets 連携を追加（利用者）。提出先シート（https://docs.google.com/spreadsheets/d/18dGvAfyAc1UMdphg27CtaJdfbTYxWkjIEuxaNhSPhzw/edit ）の「シラバス」タブを複製して「マーケティング」タブを作り、marketing.json を書き込んだ（欄とのバランス確認用。元の「シラバス」タブは変更なし）。文章欄は1行1マスの5行なので、5行を超える評価基準は2項目ずつ1マスにまとめた
