@@ -8,7 +8,7 @@ from decimal import Decimal
 from grading.domain.enums import ValueKind
 from grading.normalization.names import fold_width
 
-_NUMBER = re.compile(r"^-?\d+(\.\d+)?$")
+_NUMBER = re.compile(r"^-?[0-9]+(\.[0-9]+)?$")
 
 
 @dataclass(frozen=True)

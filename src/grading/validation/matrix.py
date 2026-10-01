@@ -7,6 +7,9 @@ from enum import StrEnum
 from grading.domain.enums import DataStatus
 
 
+_PRESENT = (DataStatus.CONFIRMED, DataStatus.WARNING)
+
+
 class Cell(StrEnum):
     OK = "OK"
     OK_WARNING = "OK(要確認)"
@@ -27,7 +30,7 @@ class Matrix:
 
     def gaps(self) -> list[tuple[str, str]]:
         """欠損・未確定の組み合わせ。表の軸ではなく、履修の組み合わせそのものから数える。"""
-        return sorted(p for p in self.expected if self.results.get(p) in (None, DataStatus.BLOCKED))
+        return sorted(p for p in self.expected if self.results.get(p) not in _PRESENT)
 
     @property
     def complete(self) -> bool:
@@ -50,10 +53,12 @@ def completeness_matrix(
                 cells[s][sub] = Cell.NOT_ENROLLED
             elif status is None:
                 cells[s][sub] = Cell.MISSING
-            elif status == DataStatus.BLOCKED:
-                cells[s][sub] = Cell.UNRESOLVED
+            elif status == DataStatus.CONFIRMED:
+                cells[s][sub] = Cell.OK
+            elif status == DataStatus.WARNING:
+                cells[s][sub] = Cell.OK_WARNING
             else:
-                cells[s][sub] = Cell.OK if status == DataStatus.CONFIRMED else Cell.OK_WARNING
+                cells[s][sub] = Cell.UNRESOLVED
     unexpected = tuple(sorted(k for k in results if k not in expected))
     off_axis = tuple(sorted(p for p in expected if p[0] not in students or p[1] not in subjects))
     return Matrix(students, subjects, cells, frozenset(expected), dict(results), unexpected, off_axis)

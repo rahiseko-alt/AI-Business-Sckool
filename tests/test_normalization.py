@@ -56,3 +56,8 @@ def test_original_value_is_kept_verbatim():
 
 def test_booleans_are_not_numbers():
     assert parse_value(True, markers={}).kind == ValueKind.UNKNOWN
+
+
+@pytest.mark.parametrize("original", ["٨٥", "𝟗𝟎"])
+def test_non_ascii_digits_are_not_numbers(original):
+    assert parse_value(original, markers={}).kind == ValueKind.UNKNOWN

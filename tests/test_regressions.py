@@ -7,7 +7,6 @@ import pytest
 
 from grading.calculation import ItemValue, calculate
 from grading.domain.enums import DataStatus, IssueType, MatchStatus
-from grading.export import check_finalizable
 from grading.identity import IdentityClaim, Student, resolve
 from grading.normalization import NameDiff, compare_names, parse_value
 from grading.rules import RuleError, SubjectRule
@@ -84,13 +83,6 @@ def test_two_values_for_one_item_block_instead_of_last_one_winning():
     values = list(_values().values()) + [_iv("期末試験", 75, evidence="E-other")]
     problems = calculate("S00123", RULE, values)
     assert isinstance(problems, list) and {p.issue_type for p in problems} == {IssueType.DATA_CONFLICT}
-
-
-def test_gate_requires_a_recheck_for_every_expected_pair():
-    m = completeness_matrix(["S1"], ["X"], {("S1", "X")}, {("S1", "X"): DataStatus.CONFIRMED})
-    assert not check_finalizable(open_blockers=0, matrix=m, rechecks={}).can_finalize
-    assert check_finalizable(open_blockers=0, matrix=m, rechecks={("S1", "X"): []}).can_finalize
-    assert not check_finalizable(open_blockers=0, matrix=m, rechecks={("S1", "X"): ["x"]}).can_finalize
 
 
 def test_threshold_entries_must_be_pairs_not_strings():

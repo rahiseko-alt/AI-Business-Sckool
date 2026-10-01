@@ -68,3 +68,8 @@ def test_result_for_unenrolled_or_unknown_pair_is_a_gap():
 def test_full_matrix_is_complete():
     m = completeness_matrix(["S1"], ["AI基礎"], {("S1", "AI基礎")}, {("S1", "AI基礎"): DataStatus.CONFIRMED})
     assert m.complete and m.gaps() == []
+
+
+def test_only_confirmed_or_warning_counts_as_present():
+    m = completeness_matrix(["S1"], ["X"], {("S1", "X")}, {("S1", "X"): "LIKELY"})
+    assert not m.complete and ("S1", "X") in m.gaps()
