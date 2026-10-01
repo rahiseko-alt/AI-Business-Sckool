@@ -1,10 +1,17 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
+import math
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from enum import StrEnum
 from typing import Any
 
 from grading.domain.enums import ValueKind
+from grading.normalization import fold_width
+
+# 記号が意味してよい種類と、ルールで扱いを決めてよい種類。
+# 空欄（BLANK）はルールで一律に点を与えられない。1件ずつ回答で意味を決める。
+NON_NUMERIC = (ValueKind.NOT_SUBMITTED, ValueKind.ABSENT, ValueKind.UNGRADED, ValueKind.NOT_APPLICABLE)
 
 
 class Policy(StrEnum):
@@ -19,11 +26,15 @@ class Rounding(StrEnum):
     HALF_UP_INT = "HALF_UP_INT"
     DOWN_INT = "DOWN_INT"
 
-    def apply(self, value: Decimal) -> Decimal:
+    def apply(self, value: Fraction) -> Fraction:
+        """厳密な有理数のまま丸める（0以上の値のみ扱う）。"""
+        if value < 0:
+            raise ValueError("negative total")
         if self == Rounding.NONE:
             return value
-        mode = ROUND_HALF_UP if self == Rounding.HALF_UP_INT else ROUND_DOWN
-        return value.quantize(Decimal(1), rounding=mode)
+        if self == Rounding.HALF_UP_INT:
+            return Fraction(math.floor(value + Fraction(1, 2)))
+        return Fraction(math.floor(value))
 
 
 class RuleError(ValueError):
@@ -36,7 +47,7 @@ class RuleError(ValueError):
 @dataclass(frozen=True)
 class Component:
     name: str
-    weight: Decimal
+    weight: Fraction
     items: tuple[str, ...]
 
 
@@ -45,13 +56,13 @@ class SubjectRule:
     subject: str
     rule_ref: str                                   # 根拠（資料の source_id か回答の decision_id）
     components: tuple[Component, ...]
-    max_scores: Mapping[str, Decimal]
-    grade_thresholds: tuple[tuple[str, Decimal], ...]  # 下限の降順。最後は必ず 0
+    max_scores: Mapping[str, Fraction]
+    grade_thresholds: tuple[tuple[str, Fraction], ...]  # 下限の降順。最後は必ず 0
     rounding: Rounding
-    markers: Mapping[str, ValueKind]
+    markers: Mapping[str, ValueKind]                # キーは正規化済み
     value_policies: Mapping[ValueKind, Policy]
 
-    def grade_for(self, total: Decimal) -> str:
+    def grade_for(self, total: Fraction) -> str:
         for grade, minimum in self.grade_thresholds:
             if total >= minimum:
                 return grade
@@ -71,37 +82,51 @@ class SubjectRule:
         max_scores = _max_scores(data.get("max_scores"), components, problems)
         thresholds = _thresholds(data.get("grade_thresholds"), problems)
         rounding = _enum(Rounding, data.get("rounding"), "端数処理", problems)
-        markers = {str(k): v for k, v in _enum_map(ValueKind, data.get("markers"), "記号", problems).items()}
-        policies = {
-            ValueKind(k): v for k, v in _enum_map(Policy, data.get("value_policies"), "値の扱い", problems).items()
-            if k in ValueKind.__members__
-        }
-        for k in (data.get("value_policies") or {}):
-            if k not in ValueKind.__members__ or k in (ValueKind.NUMBER, ValueKind.ZERO, ValueKind.UNKNOWN):
-                problems.append(f"値の扱いを決められない種類: {k}")
+        markers = _markers(data.get("markers"), problems)
+        policies = {}
+        for k, v in _enum_map(Policy, data.get("value_policies"), "値の扱い", problems).items():
+            if k not in ValueKind.__members__ or ValueKind(k) not in NON_NUMERIC:
+                problems.append(f"ルールで扱いを決められない種類: {k}")
+            else:
+                policies[ValueKind(k)] = v
 
         if problems:
             raise RuleError(subject or "(科目不明)", problems)
         return cls(subject, rule_ref, components, max_scores, thresholds, rounding, markers, policies)
 
 
-def _decimal(value: Any) -> Decimal | None:
+def _number(value: Any) -> Fraction | None:
     if value is None or isinstance(value, bool):
         return None
     try:
         d = Decimal(str(value))
     except InvalidOperation:
         return None
-    return d if d.is_finite() else None
+    return Fraction(d) if d.is_finite() else None
+
+
+def _markers(raw: Any, problems: list[str]) -> dict[str, ValueKind]:
+    result: dict[str, ValueKind] = {}
+    for k, v in _enum_map(ValueKind, raw, "記号", problems).items():
+        key = fold_width(str(k)).strip()
+        if v not in NON_NUMERIC:
+            problems.append(f"記号 {k} に数値・空欄・不明の意味は与えられない: {v}")
+        elif not key:
+            problems.append("空の記号は定義できない")
+        elif key in result:
+            problems.append(f"記号 {k} が他の記号と区別できない")
+        else:
+            result[key] = v
+    return result
 
 
 def _components(raw: Any, problems: list[str]) -> tuple[Component, ...]:
     if not raw:
         problems.append("評価項目と配点が無い")
         return ()
-    result, seen_items, total = [], set(), Decimal(0)
+    result, seen_items, total = [], set(), Fraction(0)
     for c in raw:
-        name, weight, items = c.get("name"), _decimal(c.get("weight")), tuple(c.get("items") or ())
+        name, weight, items = c.get("name"), _number(c.get("weight")), tuple(c.get("items") or ())
         if not name or weight is None or weight <= 0 or not items:
             problems.append(f"評価項目の定義が不完全: {c}")
             continue
@@ -116,26 +141,30 @@ def _components(raw: Any, problems: list[str]) -> tuple[Component, ...]:
     return tuple(result)
 
 
-def _max_scores(raw: Any, components: Iterable[Component], problems: list[str]) -> dict[str, Decimal]:
+def _max_scores(raw: Any, components: Iterable[Component], problems: list[str]) -> dict[str, Fraction]:
     raw = raw or {}
     result = {}
     for c in components:
         for item in c.items:
-            value = _decimal(raw.get(item))
+            value = _number(raw.get(item))
             if value is None or value <= 0:
                 problems.append(f"項目 {item} の満点が無い")
             else:
                 result[item] = value
+    for item in raw:
+        if item not in result and not any(item in c.items for c in components):
+            problems.append(f"満点に評価項目に無い項目がある（誤記の可能性）: {item}")
     return result
 
 
-def _thresholds(raw: Any, problems: list[str]) -> tuple[tuple[str, Decimal], ...]:
+def _thresholds(raw: Any, problems: list[str]) -> tuple[tuple[str, Fraction], ...]:
     if not raw:
         problems.append("ABCDE等の評価基準が無い")
         return ()
     pairs = []
     for entry in raw:
-        grade, minimum = (entry[0], _decimal(entry[1])) if len(entry) == 2 else (None, None)
+        ok = isinstance(entry, (list, tuple)) and len(entry) == 2
+        grade, minimum = (entry[0], _number(entry[1])) if ok else (None, None)
         if not grade or minimum is None or not 0 <= minimum <= 100:
             problems.append(f"評価基準の定義が不正: {entry}")
             continue

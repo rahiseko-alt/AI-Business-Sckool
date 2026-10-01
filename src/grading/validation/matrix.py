@@ -20,15 +20,18 @@ class Matrix:
     students: tuple[str, ...]
     subjects: tuple[str, ...]
     cells: Mapping[str, Mapping[str, Cell]]
+    expected: frozenset[tuple[str, str]]
+    results: Mapping[tuple[str, str], DataStatus]
     unexpected: tuple[tuple[str, str], ...]   # 履修していない・存在しない組み合わせの結果
+    off_axis: tuple[tuple[str, str], ...]     # 学生一覧・科目一覧に無い履修
 
     def gaps(self) -> list[tuple[str, str]]:
-        return [(s, sub) for s in self.students for sub in self.subjects
-                if self.cells[s][sub] in (Cell.UNRESOLVED, Cell.MISSING)]
+        """欠損・未確定の組み合わせ。表の軸ではなく、履修の組み合わせそのものから数える。"""
+        return sorted(p for p in self.expected if self.results.get(p) in (None, DataStatus.BLOCKED))
 
     @property
     def complete(self) -> bool:
-        return not self.gaps() and not self.unexpected
+        return bool(self.expected) and not self.gaps() and not self.unexpected and not self.off_axis
 
 
 def completeness_matrix(
@@ -52,4 +55,5 @@ def completeness_matrix(
             else:
                 cells[s][sub] = Cell.OK if status == DataStatus.CONFIRMED else Cell.OK_WARNING
     unexpected = tuple(sorted(k for k in results if k not in expected))
-    return Matrix(students, subjects, cells, unexpected)
+    off_axis = tuple(sorted(p for p in expected if p[0] not in students or p[1] not in subjects))
+    return Matrix(students, subjects, cells, frozenset(expected), dict(results), unexpected, off_axis)

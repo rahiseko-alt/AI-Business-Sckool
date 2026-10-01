@@ -1,5 +1,4 @@
 from dataclasses import replace
-from decimal import Decimal
 
 from grading.calculation import calculate
 from grading.domain.enums import DataStatus
@@ -7,39 +6,42 @@ from grading.validation import Cell, completeness_matrix, recheck
 from tests.test_calculation import RULE, _values
 
 
+VALUES = _values()
+
+
 def _result():
-    return calculate("S00123", RULE, _values())
+    return calculate("S00123", RULE, VALUES)
 
 
 def test_a_correct_result_passes_the_recheck():
-    assert recheck(_result(), RULE, evidence_owner=lambda e: "S00123") == []
+    assert recheck(_result(), RULE, VALUES, evidence_owner=lambda e: "S00123") == []
 
 
 def test_tampered_total_is_detected():
-    bad = replace(_result(), total=Decimal(95), unrounded_total=Decimal(95))
-    assert any("合計" in p for p in recheck(bad, RULE, evidence_owner=lambda e: "S00123"))
+    bad = replace(_result(), total=95, unrounded_total=95)
+    assert any("合計" in p for p in recheck(bad, RULE, VALUES, evidence_owner=lambda e: "S00123"))
 
 
 def test_wrong_grade_is_detected():
     bad = replace(_result(), grade="B")
-    assert any("評価" in p for p in recheck(bad, RULE, evidence_owner=lambda e: "S00123"))
+    assert any("評価" in p for p in recheck(bad, RULE, VALUES, evidence_owner=lambda e: "S00123"))
 
 
 def test_result_from_another_subjects_rule_is_detected():
     bad = replace(_result(), subject="マーケティング")
-    assert any("科目" in p for p in recheck(bad, RULE, evidence_owner=lambda e: "S00123"))
+    assert any("科目" in p for p in recheck(bad, RULE, VALUES, evidence_owner=lambda e: "S00123"))
 
 
 def test_other_students_evidence_mixed_in_is_detected():
     owners = {"E-課題2": "S00456"}
-    problems = recheck(_result(), RULE, evidence_owner=lambda e: owners.get(e, "S00123"))
+    problems = recheck(_result(), RULE, VALUES, evidence_owner=lambda e: owners.get(e, "S00123"))
     assert any("別の学生" in p for p in problems)
 
 
 def test_component_without_evidence_is_detected():
     r = _result()
     bad = replace(r, components=(replace(r.components[0], evidence_ids=()), *r.components[1:]))
-    assert any("根拠" in p for p in recheck(bad, RULE, evidence_owner=lambda e: "S00123"))
+    assert any("根拠" in p for p in recheck(bad, RULE, VALUES, evidence_owner=lambda e: "S00123"))
 
 
 def test_matrix_marks_ok_missing_unresolved_and_not_enrolled():

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from grading.domain.enums import DataStatus, MatchStatus
-from grading.normalization import NameDiff, compare_names, normalize_name, normalize_token
+from grading.normalization import NameDiff, compare_names, fold_width, normalize_token
 
 
 @dataclass(frozen=True)
@@ -45,11 +45,19 @@ def _token(value: object) -> str | None:
     return None if value is None or str(value).strip() == "" else normalize_token(str(value))
 
 
+def _id(field: str, value: object) -> str | None:
+    """強いIDの比較用。学籍番号・学校IDは大文字小文字を区別し、メールだけ区別しない。"""
+    if value is None or str(value).strip() == "":
+        return None
+    text = fold_width(str(value)).strip()
+    return text.casefold() if field == "email" else text
+
+
 def _check_unique(master: Sequence[Student]) -> None:
     for field in _STRONG:
         seen: dict[str, str] = {}
         for s in master:
-            key = _token(getattr(s, field))
+            key = _id(field, getattr(s, field))
             if key is None:
                 continue
             if key in seen:
@@ -86,11 +94,11 @@ def _blocked(status: MatchStatus, candidates: list[Student], reason: str) -> Mat
 def resolve(claim: IdentityClaim, master: Sequence[Student]) -> Match:
     _check_unique(master)
 
-    strong_given = [f for f in _STRONG if _token(getattr(claim, f)) is not None]
+    strong_given = [f for f in _STRONG if _id(f, getattr(claim, f)) is not None]
     if strong_given:
         hits: dict[str, Student] = {}
         for field in strong_given:
-            found = [s for s in master if _token(getattr(s, field)) == _token(getattr(claim, field))]
+            found = [s for s in master if _id(field, getattr(s, field)) == _id(field, getattr(claim, field))]
             if not found:
                 return _blocked(MatchStatus.UNMATCHED, [], f"{field} が学生マスターに存在しない")
             hits[found[0].student_key] = found[0]
