@@ -1,4 +1,6 @@
-"""クロスチェックと学生×科目の完全性マトリクス。
+"""計算後の別工程での検証。計算エンジンのコードは使わずに検算する。"""
 
-未実装（環境構築のみ）。
-"""
+from grading.validation.crosscheck import recheck
+from grading.validation.matrix import Cell, Matrix, completeness_matrix
+
+__all__ = ["Cell", "Matrix", "completeness_matrix", "recheck"]
