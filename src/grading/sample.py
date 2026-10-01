@@ -1,14 +1,17 @@
 """架空データで成績資料の見本を作る。実在の学生・資料とは無関係。
 
-    python3 -m grading.sample docs/sample/成績資料_サンプル.xlsx
+    python3 -m grading.sample docs/sample      # Excel・HTML・PDF（Chromium があれば）を作る
 """
 
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from grading.calculation import ItemValue, calculate
 from grading.domain.enums import DataStatus
 from grading.export import check_finalizable
+from grading.export.report_html import write_html_report
 from grading.export.workbook import Entry, EvidenceRef, Notice, write_workbook
 from grading.identity import IdentityClaim, Student, resolve
 from grading.normalization import parse_value
@@ -72,7 +75,7 @@ SUBJECT_OF = {"AI基礎_出席.xlsx": "AI基礎", "AI基礎_課題一覧.xlsx": 
               "マーケ_評価表.xlsx": "マーケティング"}
 
 
-def build(path: str | Path) -> Path:
+def _inputs() -> dict:
     evidence: dict[str, EvidenceRef] = {}
     owner: dict[str, str] = {}
     values: dict[tuple[str, str], list[ItemValue]] = {}
@@ -118,9 +121,38 @@ def build(path: str | Path) -> Path:
                                  {k: r.status for k, (r, _) in results.items()})
     report = check_finalizable(open_blockers=sum(n.level == "停止" for n in notices), matrix=matrix,
                                results=results, rules=RULES, evidence_owner=owner.get)
-    return write_workbook(path, students={s.student_key: s for s in STUDENTS}, rules=RULES, entries=entries,
-                          matrix=matrix, report=report, locate=evidence.__getitem__, notices=notices)
+    return dict(students={s.student_key: s for s in STUDENTS}, rules=RULES, entries=entries, matrix=matrix,
+                report=report, locate=evidence.__getitem__, notices=notices, evidence_owner=owner.get)
+
+
+def build(path: str | Path) -> Path:
+    data = _inputs()
+    data.pop("evidence_owner")
+    return write_workbook(path, **data)
+
+
+def build_html(path: str | Path) -> Path:
+    return write_html_report(path, title="成績資料（見本・架空データ）", **_inputs())
+
+
+CHROME = shutil.which("chromium") or "/opt/pw-browsers/chromium"
+
+
+def html_to_pdf(html_path: Path, pdf_path: Path) -> Path:
+    subprocess.run([CHROME, "--headless", "--no-sandbox", "--disable-gpu", "--no-pdf-header-footer",
+                    f"--print-to-pdf={pdf_path}", html_path.resolve().as_uri()],
+                   check=True, capture_output=True, timeout=120)
+    return pdf_path
+
+
+def build_all(directory: str | Path) -> list[Path]:
+    directory = Path(directory)
+    made = [build(directory / "成績資料_サンプル.xlsx"), build_html(directory / "成績資料_サンプル.html")]
+    if Path(CHROME).exists():
+        made.append(html_to_pdf(made[1], directory / "成績資料_サンプル.pdf"))
+    return made
 
 
 if __name__ == "__main__":
-    print(build(sys.argv[1] if len(sys.argv) > 1 else "data/output/成績資料_サンプル.xlsx"))
+    for p in build_all(sys.argv[1] if len(sys.argv) > 1 else "data/output"):
+        print(p)

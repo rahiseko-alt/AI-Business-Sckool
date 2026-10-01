@@ -123,6 +123,15 @@ def write_workbook(
     return path
 
 
+def problem_lines(e: "Entry") -> list[str]:
+    """停止理由を、同じ理由ごとに項目をまとめて1行にする。"""
+    grouped: dict[str, list[str]] = {}
+    for p in e.problems:
+        grouped.setdefault(p.detail, []).append(p.item or "")
+    return [f"{detail}: {'、'.join(i for i in items if i)}" if any(items) else detail
+            for detail, items in grouped.items()]
+
+
 def _name(students: Mapping[str, Student], key: str) -> tuple[str, str, str]:
     s = students.get(key)
     return (s.student_number or "", s.name, s.class_ or "") if s else ("", f"（不明: {key}）", "")
@@ -255,9 +264,9 @@ def _write_check_sheet(ws, students, rules: RuleBook, entries: Sequence[Entry], 
                 ws.cell(row, 1, "要確認").fill = _WARN_FILL
                 ws.cell(row, 3, note)
                 row += 1
-        for p in e.problems:
+        for line in problem_lines(e):
             ws.cell(row, 1, "停止").fill = _STOP_FILL
-            ws.cell(row, 3, f"{p.item or ''} {p.detail}".strip())
+            ws.cell(row, 3, line)
             row += 1
         row += 1
     return starts
@@ -379,7 +388,7 @@ def _write_notices(ws, students, entries: Sequence[Entry], report: FinalizationR
     rows += [("停止", None, None, f"完成にできない理由: {r}") for r in report.reasons]
     rows += [(n.level, n.student_key, n.subject, n.text) for n in notices]
     for e in entries:
-        rows += [("停止", e.student_key, e.subject, f"{p.item or ''} {p.detail}".strip()) for p in e.problems]
+        rows += [("停止", e.student_key, e.subject, line) for line in problem_lines(e)]
         if e.result:
             rows += [("要確認", e.student_key, e.subject, n) for n in e.result.notes]
     rows.sort(key=lambda r: r[0] != "停止")

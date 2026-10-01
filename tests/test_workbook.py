@@ -54,3 +54,18 @@ def test_excel_itself_agrees_with_every_system_value(sample, tmp_path):
     ws = load_workbook(out / sample.name, data_only=True)["検算"]
     verdicts = [ws.cell(r, 15).value for r in range(2, ws.max_row + 1) if ws.cell(r, 15).value]
     assert len(verdicts) >= 20 and set(verdicts) == {"一致"}
+
+
+def test_html_report_shows_banner_formulas_sources_and_recheck(tmp_path):
+    from grading.sample import build_html
+    text = build_html(tmp_path / "r.html").read_text(encoding="utf-8")
+    assert "未完成" in text
+    assert "(8 + 9 + 10) ÷ (10 + 10 + 10) × 40 = <b>36</b>" in text
+    assert "AI基礎_課題一覧.xlsx / 課題 / H31" in text
+    assert "一致（別の手順で計算し直しても同じ結果）" in text and "不一致" not in text
+    assert "値が無い: レポート1、レポート2、発表、参加" in text
+
+
+def test_html_escapes_text_from_documents(tmp_path):
+    from grading.export.report_html import _e
+    assert _e("<script>") == "&lt;script&gt;"

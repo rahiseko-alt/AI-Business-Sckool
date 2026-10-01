@@ -1,0 +1,107 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>成績資料（見本・架空データ）</title><style>
+:root { --ink:#1f2328; --muted:#59636e; --line:#d0d7de; --ok:#e2efda; --warn:#fff2cc; --stop:#f8cbad; --head:#dde7f3; }
+* { box-sizing:border-box; }
+body { font-family:"Noto Sans CJK JP","Hiragino Sans","Yu Gothic","WenQuanYi Zen Hei",sans-serif; color:var(--ink);
+       background:#fff; margin:0; padding:24px 16px; line-height:1.6; font-size:14px; }
+main { max-width:900px; margin:0 auto; }
+h1 { font-size:22px; margin:0 0 12px; } h2 { font-size:18px; margin:32px 0 8px; border-bottom:2px solid var(--line); }
+h3 { font-size:15px; margin:0; }
+.banner { padding:12px 16px; border-radius:6px; font-weight:bold; }
+.banner.ok { background:var(--ok); } .banner.stop { background:var(--stop); }
+.banner ul { margin:6px 0 0; font-weight:normal; }
+table { border-collapse:collapse; width:100%; margin:6px 0; }
+th, td { border:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:top; }
+th { background:var(--head); white-space:nowrap; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.tag { display:inline-block; padding:0 6px; border-radius:4px; font-size:12px; }
+.s-ok { background:var(--ok); } .s-warn { background:var(--warn); } .s-stop { background:var(--stop); }
+.card { border:1px solid var(--line); border-radius:6px; padding:12px; margin:14px 0; page-break-inside:avoid; }
+.card.warn { border-left:6px solid #e0b400; } .card.stop { border-left:6px solid #d9534f; } .card.ok { border-left:6px solid #5a9e3a; }
+.calc { margin:8px 0 0; padding:8px 10px; background:#f6f8fa; border-radius:4px; }
+.calc div { margin:2px 0; } .muted { color:var(--muted); font-size:12px; }
+.table-wrap { overflow-x:auto; }
+@media print { body { padding:0; font-size:11px; } h2 { page-break-after:avoid; } }
+</style></head><body><main>
+<h1>成績資料（見本・架空データ）</h1>
+<div class="banner stop">未完成：次の理由が解消するまで、成績として使わないでください。<ul><li>未回答の確認事項が 1 件ある</li><li>学生×科目に欠損・未確定が 1 件、想定外の結果が 0 件、一覧に無い履修が 0 件ある</li><li>出力する結果が無い組み合わせが 1 件ある</li></ul></div>
+<p class="muted">点数は丸めていません。割り切れない値は分数で示しています。小数点の最終調整は人が行ってください。</p>
+<h2>確認事項</h2>
+<div class="table-wrap"><table><tr><th>区分</th><th>学生</th><th>科目</th><th>内容</th></tr>
+<tr><td><span class="tag s-stop">停止</span></td><td> </td><td>マーケティング</td><td>資料「マーケ_評価表.xlsx」の6行目「山田 花子」は学籍番号が無く、同姓同名が複数います（20260031/1A/山田 花子、20260082/1B/山田 花子）。どの学生ですか？</td></tr>
+<tr><td><span class="tag s-stop">停止</span></td><td>20260082 山田 花子</td><td>マーケティング</td><td>値が無い: レポート1、レポート2、発表、参加</td></tr>
+<tr><td><span class="tag s-warn">要確認</span></td><td>20260082 山田 花子</td><td>AI基礎</td><td>資料「AI基礎_出席.xlsx」の13行目: 氏名の表記（空白・全角半角・ローマ字）のみ異なる</td></tr>
+<tr><td><span class="tag s-warn">要確認</span></td><td>20260031 山田 花子</td><td>AI基礎</td><td>合計に端数がある（89.6）。端数の扱いで評価が B から A に変わり得る</td></tr>
+</table></div>
+<h2>成績表</h2>
+<div class="table-wrap"><table><tr><th>学籍番号</th><th>氏名</th><th>クラス</th><th>科目</th><th>合計</th><th>評価</th><th>状態</th></tr>
+<tr><td>20260031</td><td>山田 花子</td><td>1A</td><td>AI基礎</td><td class="num">89.6</td><td>B</td><td><span class="tag s-warn">要確認</span></td></tr>
+<tr><td>20260031</td><td>山田 花子</td><td>1A</td><td>マーケティング</td><td class="num">81.25</td><td>B</td><td><span class="tag s-ok">確定</span></td></tr>
+<tr><td>20260082</td><td>山田 花子</td><td>1B</td><td>AI基礎</td><td class="num">986/15（65.733333…）</td><td>D</td><td><span class="tag s-warn">要確認</span></td></tr>
+<tr><td>20260082</td><td>山田 花子</td><td>1B</td><td>マーケティング</td><td class="num">—</td><td>—</td><td><span class="tag s-stop">停止</span></td></tr>
+<tr><td>20260050</td><td>佐藤 一郎</td><td>1A</td><td>AI基礎</td><td class="num">1072/15（71.466666…）</td><td>C</td><td><span class="tag s-ok">確定</span></td></tr>
+<tr><td>20260050</td><td>佐藤 一郎</td><td>1A</td><td>マーケティング</td><td class="num">64</td><td>D</td><td><span class="tag s-ok">確定</span></td></tr>
+</table></div>
+<h2>完全性（学生×科目）</h2>
+<p class="muted">OK＝確定 / OK(要確認) / ??＝止まっている / NG＝データなし / —＝履修なし</p>
+<div class="table-wrap"><table><tr><th>学生</th><th>AI基礎</th><th>マーケティング</th></tr>
+<tr><td>20260031 山田 花子</td><td><span class="tag s-warn">OK(要確認)</span></td><td><span class="tag s-ok">OK</span></td></tr>
+<tr><td>20260082 山田 花子</td><td><span class="tag s-warn">OK(要確認)</span></td><td><span class="tag s-stop">NG</span></td></tr>
+<tr><td>20260050 佐藤 一郎</td><td><span class="tag s-ok">OK</span></td><td><span class="tag s-ok">OK</span></td></tr>
+</table></div>
+<h2>内訳と根拠（1人1科目ずつ）</h2>
+<p class="muted">元の値が根拠の資料・セルと同じかを確かめ、計算式を電卓でたどれば検算できます。「検算」欄は、システムが別の手順で元の値から計算し直した結果です。</p>
+<section class="card warn"><h3>AI基礎　20260031 山田 花子（1A）　<span class="tag s-warn">要確認</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>出席</td><td>出席回数</td><td>15<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">15 / 15</td><td>AI基礎_出席.xlsx / 1学期 / G12</td></tr>
+<tr><td>課題</td><td>課題1</td><td>8<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">8 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / H31</td></tr>
+<tr><td>課題</td><td>課題2</td><td>9<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">9 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / I31</td></tr>
+<tr><td>課題</td><td>課題3</td><td>10<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">10 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / J31</td></tr>
+<tr><td>試験</td><td>期末試験</td><td>84<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">84 / 100</td><td>AI基礎_試験.xlsx / 期末 / C14</td></tr>
+</table></div>
+<div class="calc"><div>出席：(15) ÷ (15) × 20 = <b>20</b></div><div>課題：(8 + 9 + 10) ÷ (10 + 10 + 10) × 40 = <b>36</b></div><div>試験：(84) ÷ (100) × 40 = <b>33.6</b></div><div>合計：20 + 36 + 33.6 = <b>89.6</b></div><div>評価：<b>B</b>　<span class="muted">（基準 A: 90以上、B: 80以上、C: 70以上、D: 60以上、E: 0以上）</span></div><div>検算：<span class="tag s-ok">一致（別の手順で計算し直しても同じ結果）</span></div><div><span class="tag s-warn">要確認</span> 合計に端数がある（89.6）。端数の扱いで評価が B から A に変わり得る</div></div></section>
+<section class="card ok"><h3>マーケティング　20260031 山田 花子（1A）　<span class="tag s-ok">確定</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>課題</td><td>レポート1</td><td>18<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">18 / 20</td><td>マーケ_評価表.xlsx / 成績 / D5</td></tr>
+<tr><td>課題</td><td>レポート2</td><td>15<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">15 / 20</td><td>マーケ_評価表.xlsx / 成績 / E5</td></tr>
+<tr><td>発表</td><td>発表</td><td>22<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">22 / 30</td><td>マーケ_評価表.xlsx / 成績 / F5</td></tr>
+<tr><td>参加</td><td>参加</td><td>9<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">9 / 10</td><td>マーケ_評価表.xlsx / 成績 / G5</td></tr>
+</table></div>
+<div class="calc"><div>課題：(18 + 15) ÷ (20 + 20) × 50 = <b>41.25</b></div><div>発表：(22) ÷ (30) × 30 = <b>22</b></div><div>参加：(9) ÷ (10) × 20 = <b>18</b></div><div>合計：41.25 + 22 + 18 = <b>81.25</b></div><div>評価：<b>B</b>　<span class="muted">（基準 A: 90以上、B: 80以上、C: 70以上、D: 60以上、E: 0以上）</span></div><div>検算：<span class="tag s-ok">一致（別の手順で計算し直しても同じ結果）</span></div></div></section>
+<section class="card warn"><h3>AI基礎　20260082 山田 花子（1B）　<span class="tag s-warn">要確認</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>出席</td><td>出席回数</td><td>12<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">12 / 15</td><td>AI基礎_出席.xlsx / 1学期 / G13</td></tr>
+<tr><td>課題</td><td>課題1</td><td>7<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">7 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / H32</td></tr>
+<tr><td>課題</td><td>課題2</td><td>未提出<div class="muted">未提出</div></td><td>未提出 → 0点（採点ルールによる）</td><td class="num">0 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / I32</td></tr>
+<tr><td>課題</td><td>課題3</td><td>9<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">9 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / J32</td></tr>
+<tr><td>試験</td><td>期末試験</td><td>71<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">71 / 100</td><td>AI基礎_試験.xlsx / 期末 / C15</td></tr>
+</table></div>
+<div class="calc"><div>出席：(12) ÷ (15) × 20 = <b>16</b></div><div>課題：(7 + 0 + 9) ÷ (10 + 10 + 10) × 40 = <b>64/3（21.333333…）</b></div><div>試験：(71) ÷ (100) × 40 = <b>28.4</b></div><div>合計：16 + 64/3 + 28.4 = <b>986/15（65.733333…）</b></div><div>評価：<b>D</b>　<span class="muted">（基準 A: 90以上、B: 80以上、C: 70以上、D: 60以上、E: 0以上）</span></div><div>検算：<span class="tag s-ok">一致（別の手順で計算し直しても同じ結果）</span></div></div></section>
+<section class="card stop"><h3>マーケティング　20260082 山田 花子（1B）　<span class="tag s-stop">停止</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>課題</td><td>レポート1</td><td>—</td><td><span class="tag s-stop">値がありません</span></td><td></td><td></td></tr>
+<tr><td>課題</td><td>レポート2</td><td>—</td><td><span class="tag s-stop">値がありません</span></td><td></td><td></td></tr>
+<tr><td>発表</td><td>発表</td><td>—</td><td><span class="tag s-stop">値がありません</span></td><td></td><td></td></tr>
+<tr><td>参加</td><td>参加</td><td>—</td><td><span class="tag s-stop">値がありません</span></td><td></td><td></td></tr>
+</table></div>
+<div class="calc"><b>計算していません。</b><ul><li>値が無い: レポート1、レポート2、発表、参加</li></ul></div></section>
+<section class="card ok"><h3>AI基礎　20260050 佐藤 一郎（1A）　<span class="tag s-ok">確定</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>出席</td><td>出席回数</td><td>14<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">14 / 15</td><td>AI基礎_出席.xlsx / 1学期 / G14</td></tr>
+<tr><td>課題</td><td>課題1</td><td>6<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">6 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / H33</td></tr>
+<tr><td>課題</td><td>課題2</td><td>7<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">7 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / I33</td></tr>
+<tr><td>課題</td><td>課題3</td><td>8<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">8 / 10</td><td>AI基礎_課題一覧.xlsx / 課題 / J33</td></tr>
+<tr><td>試験</td><td>期末試験</td><td>62<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">62 / 100</td><td>AI基礎_試験.xlsx / 期末 / C16</td></tr>
+</table></div>
+<div class="calc"><div>出席：(14) ÷ (15) × 20 = <b>56/3（18.666666…）</b></div><div>課題：(6 + 7 + 8) ÷ (10 + 10 + 10) × 40 = <b>28</b></div><div>試験：(62) ÷ (100) × 40 = <b>24.8</b></div><div>合計：56/3 + 28 + 24.8 = <b>1072/15（71.466666…）</b></div><div>評価：<b>C</b>　<span class="muted">（基準 A: 90以上、B: 80以上、C: 70以上、D: 60以上、E: 0以上）</span></div><div>検算：<span class="tag s-ok">一致（別の手順で計算し直しても同じ結果）</span></div></div></section>
+<section class="card ok"><h3>マーケティング　20260050 佐藤 一郎（1A）　<span class="tag s-ok">確定</span></h3>
+<div class="table-wrap"><table><tr><th>評価項目</th><th>項目</th><th>元の値</th><th>扱い</th><th>使う点 / 満点</th><th>根拠（資料 / シート / セル）</th></tr>
+<tr><td>課題</td><td>レポート1</td><td>12<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">12 / 20</td><td>マーケ_評価表.xlsx / 成績 / D7</td></tr>
+<tr><td>課題</td><td>レポート2</td><td>対象外<div class="muted">対象外</div></td><td>対象外 → 計算から除外（採点ルールによる）</td><td class="num">除外</td><td>マーケ_評価表.xlsx / 成績 / E7</td></tr>
+<tr><td>発表</td><td>発表</td><td>20<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">20 / 30</td><td>マーケ_評価表.xlsx / 成績 / F7</td></tr>
+<tr><td>参加</td><td>参加</td><td>7<div class="muted">数値</div></td><td>そのまま使用</td><td class="num">7 / 10</td><td>マーケ_評価表.xlsx / 成績 / G7</td></tr>
+</table></div>
+<div class="calc"><div>課題：(12) ÷ (20) × 50 = <b>30</b></div><div>発表：(20) ÷ (30) × 30 = <b>20</b></div><div>参加：(7) ÷ (10) × 20 = <b>14</b></div><div>合計：30 + 20 + 14 = <b>64</b></div><div>評価：<b>D</b>　<span class="muted">（基準 A: 90以上、B: 80以上、C: 70以上、D: 60以上、E: 0以上）</span></div><div>検算：<span class="tag s-ok">一致（別の手順で計算し直しても同じ結果）</span></div></div></section>
+<h2>採点ルール</h2>
+<section class="card"><h3>AI基礎</h3><div class="muted">根拠: 採点基準.xlsx / AI基礎</div><div class="table-wrap"><table><tr><th>評価項目</th><th>配点</th><th>項目（満点）</th></tr><tr><td>出席</td><td class="num">20</td><td>出席回数（15点）</td></tr><tr><td>課題</td><td class="num">40</td><td>課題1（10点）、課題2（10点）、課題3（10点）</td></tr><tr><td>試験</td><td class="num">40</td><td>期末試験（100点）</td></tr></table></div><div>評価基準：A: 90点以上、B: 80点以上、C: 70点以上、D: 60点以上、E: 0点以上</div><div>記号の意味：「未提出」＝未提出</div><div>数値以外の扱い：未提出＝0点（ここに無い扱いはすべて停止して人に確認します）</div></section>
+<section class="card"><h3>マーケティング</h3><div class="muted">根拠: シラバス_マーケティング.pdf p.3</div><div class="table-wrap"><table><tr><th>評価項目</th><th>配点</th><th>項目（満点）</th></tr><tr><td>課題</td><td class="num">50</td><td>レポート1（20点）、レポート2（20点）</td></tr><tr><td>発表</td><td class="num">30</td><td>発表（30点）</td></tr><tr><td>参加</td><td class="num">20</td><td>参加（10点）</td></tr></table></div><div>評価基準：A: 90点以上、B: 80点以上、C: 70点以上、D: 60点以上、E: 0点以上</div><div>記号の意味：「対象外」＝対象外</div><div>数値以外の扱い：対象外＝計算から除外（ここに無い扱いはすべて停止して人に確認します）</div></section>
+</main></body></html>

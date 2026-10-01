@@ -15,7 +15,8 @@
 
 Excel 1ファイルに、成績表・検算・完全性・根拠・採点ルール・確認事項をまとめて出力します。
 「検算」シートの小計・合計・評価は Excel 自身の計算式で、システムの値と並べて一致・不一致を表示します。
-見本（架空データ）: `docs/sample/成績資料_サンプル.xlsx`（`python3 -m grading.sample <出力先>` で作り直せます）
+読む用に、同じ内容を1人1科目ずつ縦に並べた HTML / PDF も出力します（スマートフォン・印刷向け）。
+見本（架空データ）: `docs/sample/` の xlsx・html・pdf（`python3 -m grading.sample docs/sample` で作り直せます）
 
 ## 構成
 
