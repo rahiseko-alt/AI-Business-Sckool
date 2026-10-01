@@ -1,0 +1,10 @@
+# 学生の個人情報を含む資料・作業データ・出力は絶対にコミットしない
+data/*
+!data/README.md
+*.sqlite
+*.db
+
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
