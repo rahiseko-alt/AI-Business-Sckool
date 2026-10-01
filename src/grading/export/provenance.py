@@ -1,4 +1,3 @@
-import math
 from collections.abc import Callable
 from decimal import Decimal
 from fractions import Fraction
@@ -7,7 +6,7 @@ from grading.calculation import SubjectResult
 
 
 def format_number(value: Fraction) -> str:
-    """有限小数ならそのまま、割り切れなければ小数第2位で切り捨てて「…」を付ける（切り上げて評価と矛盾させない）。"""
+    """丸めずに表示する。有限小数ならそのまま、割り切れなければ分数で示し、参考の小数を「…」付きで添える。"""
     d = value.denominator
     while d % 2 == 0:
         d //= 2
@@ -15,8 +14,9 @@ def format_number(value: Fraction) -> str:
         d //= 5
     if d == 1:
         return f"{(Decimal(value.numerator) / Decimal(value.denominator)).normalize():f}"
-    truncated = Fraction(math.floor(value * 100), 100)
-    return f"{Decimal(truncated.numerator) / Decimal(truncated.denominator):.2f}…"
+    whole, rest = divmod(value.numerator, value.denominator)
+    digits = "".join(str((rest * 10 ** (i + 1) // value.denominator) % 10) for i in range(6))
+    return f"{value.numerator}/{value.denominator}（{whole}.{digits}…）"
 
 
 def provenance(result: SubjectResult, locate: Callable[[int | str], str]) -> list[str]:

@@ -33,12 +33,25 @@ def test_every_component_carries_its_evidence():
     assert r.components[1].evidence_ids == ("E-課題1", "E-課題2")
 
 
-def test_rounding_follows_the_rule_and_happens_before_grading():
-    # 試験 89 → 35.6, 合計 89.6 → 四捨五入 90 → A
+def test_total_is_never_rounded_and_grade_uses_the_exact_value():
+    # 試験 89 → 35.6, 合計 89.6 のまま → B（丸めるかどうかは人が決める）
     r = calculate("S00123", RULE, _values(期末試験=89))
-    assert (r.unrounded_total, r.total, r.grade) == (Decimal("89.6"), Decimal(90), "A")
-    down = SubjectRule.from_dict(_with(rounding="DOWN_INT"))
-    assert calculate("S00123", down, _values(rule=down, 期末試験=89)).grade == "B"
+    assert (r.total, r.grade) == (Decimal("89.6"), "B")
+
+
+def test_total_whose_grade_could_change_by_human_rounding_is_flagged():
+    r = calculate("S00123", RULE, _values(期末試験=89))
+    assert r.status == DataStatus.WARNING
+    assert any("端数" in n and "A" in n for n in r.notes)
+
+
+def test_fractional_total_far_from_a_boundary_is_not_flagged():
+    r = calculate("S00123", RULE, _values(期末試験=84))   # 87.6 → B、切り上げても切り捨てても B
+    assert (r.grade, r.status, r.notes) == ("B", DataStatus.CONFIRMED, ())
+
+
+def test_integer_total_is_not_flagged():
+    assert calculate("S00123", RULE, _values()).notes == ()
 
 
 def test_blank_is_never_scored_as_zero():

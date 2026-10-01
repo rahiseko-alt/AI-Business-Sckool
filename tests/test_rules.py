@@ -15,7 +15,6 @@ AI_KISO = {
     ],
     "max_scores": {"出席": 15, "課題1": 10, "課題2": 10, "期末試験": 100},
     "grade_thresholds": [["A", 90], ["B", 80], ["C", 70], ["D", 60], ["E", 0]],
-    "rounding": "HALF_UP_INT",
     "markers": {"未提出": "NOT_SUBMITTED", "欠": "ABSENT"},
     "value_policies": {"NOT_SUBMITTED": "SCORE_ZERO"},
 }
@@ -41,7 +40,6 @@ def test_complete_rule_is_accepted():
         (_with(grade_thresholds=None), "ABCDE"),
         (_with(grade_thresholds=[["A", 90], ["B", 80]]), "0"),
         (_with(grade_thresholds=[["A", 90], ["B", 90], ["E", 0]]), "重複"),
-        (_with(rounding=None), "端数"),
         (_with(rule_ref=""), "根拠"),
         (_with(value_policies={"ABSENT": "AVERAGE"}), "AVERAGE"),
     ],

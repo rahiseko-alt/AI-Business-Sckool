@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-import math
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from enum import StrEnum
@@ -19,22 +18,6 @@ class Policy(StrEnum):
 
     SCORE_ZERO = "SCORE_ZERO"   # 0点として数える
     EXCLUDE = "EXCLUDE"         # その項目を分子・分母の両方から除く
-
-
-class Rounding(StrEnum):
-    NONE = "NONE"
-    HALF_UP_INT = "HALF_UP_INT"
-    DOWN_INT = "DOWN_INT"
-
-    def apply(self, value: Fraction) -> Fraction:
-        """厳密な有理数のまま丸める（0以上の値のみ扱う）。"""
-        if value < 0:
-            raise ValueError("negative total")
-        if self == Rounding.NONE:
-            return value
-        if self == Rounding.HALF_UP_INT:
-            return Fraction(math.floor(value + Fraction(1, 2)))
-        return Fraction(math.floor(value))
 
 
 class RuleError(ValueError):
@@ -58,7 +41,6 @@ class SubjectRule:
     components: tuple[Component, ...]
     max_scores: Mapping[str, Fraction]
     grade_thresholds: tuple[tuple[str, Fraction], ...]  # 下限の降順。最後は必ず 0
-    rounding: Rounding
     markers: Mapping[str, ValueKind]                # キーは正規化済み
     value_policies: Mapping[ValueKind, Policy]
 
@@ -81,7 +63,8 @@ class SubjectRule:
         components = _components(data.get("components"), problems)
         max_scores = _max_scores(data.get("max_scores"), components, problems)
         thresholds = _thresholds(data.get("grade_thresholds"), problems)
-        rounding = _enum(Rounding, data.get("rounding"), "端数処理", problems)
+        if "rounding" in data:
+            problems.append("端数処理はシステムでは行わない（小数点は最終的に人が調整する）")
         markers = _markers(data.get("markers"), problems)
         policies = {}
         for k, v in _enum_map(Policy, data.get("value_policies"), "値の扱い", problems).items():
@@ -92,7 +75,7 @@ class SubjectRule:
 
         if problems:
             raise RuleError(subject or "(科目不明)", problems)
-        return cls(subject, rule_ref, components, max_scores, thresholds, rounding, markers, policies)
+        return cls(subject, rule_ref, components, max_scores, thresholds, markers, policies)
 
 
 def _number(value: Any) -> Fraction | None:

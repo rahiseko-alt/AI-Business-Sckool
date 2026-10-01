@@ -18,7 +18,7 @@ def test_a_correct_result_passes_the_recheck():
 
 
 def test_tampered_total_is_detected():
-    bad = replace(_result(), total=95, unrounded_total=95)
+    bad = replace(_result(), total=95)
     assert any("合計" in p for p in recheck(bad, RULE, VALUES, evidence_owner=lambda e: "S00123"))
 
 

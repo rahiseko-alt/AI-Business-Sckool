@@ -81,10 +81,8 @@ def recheck(
             if owner != result.student_key:
                 problems.append(f"{rc.name} の根拠 {e} が別の学生（{owner}）のもの")
 
-    if recomputed != result.unrounded_total:
-        problems.append(f"合計が検算と違う: {result.unrounded_total} / {recomputed}")
-    if recomputed < 0 or result.total != rule.rounding.apply(recomputed):
-        problems.append(f"端数処理後の合計が違う: {result.total}")
+    if recomputed != result.total:
+        problems.append(f"合計が検算と違う: {result.total} / {recomputed}")
     if not 0 <= result.total <= 100:
         problems.append(f"合計 {result.total} が 0〜100 の範囲外")
     if _grade(result.total, rule.grade_thresholds) != result.grade:

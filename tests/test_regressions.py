@@ -27,11 +27,15 @@ def _iv(item, raw, evidence=None, status=DataStatus.CONFIRMED, markers=None):
     return ItemValue(item, parse_value(raw, markers or {}), evidence or f"E-{item}", status)
 
 
-@pytest.mark.parametrize("rounding", ["NONE", "DOWN_INT", "HALF_UP_INT"])
-def test_exact_arithmetic_keeps_a_true_60_at_60(rounding):
-    rule = SubjectRule.from_dict({**THIRDS, "rounding": rounding})
+def test_exact_arithmetic_keeps_a_true_60_at_60():
+    rule = SubjectRule.from_dict(THIRDS)
     r = calculate("S", rule, [_iv("a", 2), _iv("b", 2), _iv("c", 5)])
-    assert r.unrounded_total == Fraction(60) and r.total == 60 and r.grade == "C"
+    assert r.total == Fraction(60) and r.grade == "C"
+
+
+def test_rule_cannot_ask_the_system_to_round():
+    with pytest.raises(RuleError):
+        SubjectRule.from_dict({**THIRDS, "rounding": "HALF_UP_INT"})
 
 
 def _ok_owner(e):
@@ -43,7 +47,7 @@ def test_recheck_recomputes_from_the_item_values():
     r = calculate("S00123", RULE, values)
     c = r.components
     forged = replace(r, components=(replace(c[0], score=Fraction(10)), *c[1:]),
-                     unrounded_total=r.unrounded_total - 10, total=r.total - 10, grade="B")
+                     total=r.total - 10, grade="B")
     assert any("出席" in p for p in recheck(forged, RULE, values, _ok_owner))
     assert recheck(r, RULE, values, _ok_owner) == []
 

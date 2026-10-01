@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
@@ -27,7 +28,7 @@ class CalcProblem:
 @dataclass(frozen=True)
 class ComponentScore:
     component: str
-    score: Fraction             # 計算は厳密な有理数で行い、丸めは合計に1回だけ
+    score: Fraction             # 厳密な有理数。丸めない（小数点は最終的に人が調整する）
     weight: Fraction
     evidence_ids: tuple[int | str, ...]
 
@@ -37,11 +38,11 @@ class SubjectResult:
     student_key: str
     subject: str
     components: tuple[ComponentScore, ...]
-    unrounded_total: Fraction
-    total: Fraction
+    total: Fraction             # 丸めない
     grade: str
     rule_ref: str
     status: DataStatus
+    notes: tuple[str, ...] = ()  # 人に確認してほしい点（監査一覧に出す）
 
 
 def as_list(values: Mapping[str, ItemValue] | Iterable[ItemValue]) -> list[ItemValue]:
@@ -113,10 +114,21 @@ def calculate(
     if problems:
         return problems
 
-    unrounded = sum((c.score for c in components), Fraction(0))
-    total = rule.rounding.apply(unrounded)
+    total = sum((c.score for c in components), Fraction(0))
     if not 0 <= total <= 100:
         return [CalcProblem(IssueType.OUT_OF_RANGE, None, f"合計 {total} が 0〜100 の範囲外")]
-    status = DataStatus.WARNING if any(v.status == DataStatus.WARNING for v in values) else DataStatus.CONFIRMED
-    return SubjectResult(student_key, rule.subject, tuple(components), unrounded, total,
-                         rule.grade_for(total), rule.rule_ref, status)
+    grade = rule.grade_for(total)
+    notes = _rounding_sensitivity(rule, total, grade)
+    warned = notes or any(v.status == DataStatus.WARNING for v in values)
+    return SubjectResult(student_key, rule.subject, tuple(components), total, grade, rule.rule_ref,
+                         DataStatus.WARNING if warned else DataStatus.CONFIRMED, notes)
+
+
+def _rounding_sensitivity(rule: SubjectRule, total: Fraction, grade: str) -> tuple[str, ...]:
+    """端数がある合計で、人が整数に切り上げ・切り捨てると評価が変わる場合に知らせる。"""
+    if total.denominator == 1:
+        return ()
+    other = {rule.grade_for(Fraction(math.floor(total))), rule.grade_for(Fraction(math.ceil(total)))} - {grade}
+    if not other:
+        return ()
+    return (f"合計に端数がある（{float(total):.6g}）。端数の扱いで評価が {grade} から {'/'.join(sorted(other))} に変わり得る",)

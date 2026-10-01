@@ -67,7 +67,8 @@ def test_provenance_traces_grade_back_to_cells():
     assert lines[-1] == "合計 90 → 評価 A"
 
 
-def test_numbers_are_shown_exactly_or_truncated_never_rounded_up():
+def test_numbers_are_shown_exactly_without_rounding():
     assert format_number(Fraction(448, 5)) == "89.6"
-    assert format_number(Fraction(200, 3)) == "66.66…"
-    assert format_number(Fraction(79997, 1000) - Fraction(1, 3000)) == "79.99…"
+    assert format_number(Fraction(1, 8)) == "0.125"
+    assert format_number(Fraction(200, 3)) == "200/3（66.666666…）"
+    assert format_number(Fraction(239989, 3000)).startswith("239989/3000（79.996333…")
