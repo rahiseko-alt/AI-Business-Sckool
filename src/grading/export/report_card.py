@@ -146,9 +146,10 @@ def _e(text: object) -> str:
 CSS = """
 @page { size: A4 portrait; margin: 12mm 12mm; }
 * { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; font-family: "IPAGothic", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif; color: #000; background: #fff;
        font-size: 9.5pt; }
-.page { width: 186mm; margin: 0 auto; page-break-after: always; }
+.page { width: 186mm; margin: 0 auto; page-break-after: always; position: relative; }
 .page:last-child { page-break-after: auto; }
 .top { display: flex; justify-content: space-between; align-items: flex-start; }
 .school { font-size: 10pt; line-height: 1.5; }
@@ -171,6 +172,13 @@ td.c { text-align: center; }
 .remarks { border: 0.6pt solid #000; padding: 1.5mm 2mm; min-height: 10mm; }
 .foot { display: flex; justify-content: space-between; margin-top: 5mm; }
 .foot .right { text-align: right; line-height: 1.7; }
+/* E の科目: 白黒印刷でも分かるよう黒地に白文字 */
+.fail td { background: #000; color: #fff; }
+/* スタンプ: 枠と文字だけの赤（中は透明）。まだ空欄の後期の欄に置き、記入済みの内容には重ねない */
+.stamp { position: absolute; left: 50%; top: 181mm; transform: translate(-50%, -50%) rotate(-14deg);
+         border: 3.2mm double rgba(205, 0, 0, .62); border-radius: 4mm; padding: 2mm 9mm;
+         color: rgba(205, 0, 0, .62); font-size: 52pt; font-weight: bold; letter-spacing: .12em; white-space: nowrap;
+         pointer-events: none; }
 """
 
 ROWS_PER_TERM = 13
@@ -192,13 +200,14 @@ def _attendance(card: Card | None) -> str:
     return f"<table>{head}{body}</table>"
 
 
-def _grades(card: Card | None, year: str) -> str:
+def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
     head = "<tr><th>授業科目</th><th>点数</th><th>評定</th><th>形態</th><th>設定</th><th>取得</th></tr>"
     blank = "<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>"
     out = [f"<table>{head}", '<tr class="term"><td colspan="6">前期</td></tr>']
     lines = card.lines if card else ()
     for l in lines:
-        out.append(f'<tr><td class="subject">{_e(l.name)}</td><td class="n">{_one_decimal(l.score)}</td>'
+        tr = '<tr class="fail">' if black_e and l.grade == "E" else "<tr>"
+        out.append(f'{tr}<td class="subject">{_e(l.name)}</td><td class="n">{_one_decimal(l.score)}</td>'
                    f'<td class="c">{_e(l.grade)}</td><td class="c">{_e(l.kind)}</td><td class="n">{l.credits}</td>'
                    f'<td class="n">{"－" if l.earned is None else l.earned}</td></tr>')
     out += [blank] * (ROWS_PER_TERM - len(lines) - 1)
@@ -214,8 +223,9 @@ def _grades(card: Card | None, year: str) -> str:
     return "".join(out)
 
 
-def _page(card: Card, issued: dt.date) -> str:
-    return f"""<section class="page">
+def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
+    mark = f'<div class="stamp">{_e(stamp)}</div>' if stamp and any(l.grade == "E" for l in card.lines) else ""
+    return f"""<section class="page">{mark}
 <div class="top"><div class="school">学校法人海鵬学園<br><b>AIビジネス専門学校</b></div>
 <div class="notice">この書類は成績証明書ではありません</div></div>
 <h1>通知表</h1>
@@ -228,7 +238,7 @@ def _page(card: Card, issued: dt.date) -> str:
 <div class="two"><div><table><tr><th class="year">1年（2026年度）</th></tr></table>{_attendance(card)}</div>
 <div><table><tr><th class="year">2年（2027年度）</th></tr></table>{_attendance(None)}</div></div>
 <h2>成績・単位</h2>
-<div class="two"><div><table><tr><th class="year">1年</th></tr></table>{_grades(card, "1年")}</div>
+<div class="two"><div><table><tr><th class="year">1年</th></tr></table>{_grades(card, "1年", black_e)}</div>
 <div><table><tr><th class="year">2年</th></tr></table>{_grades(None, "2年")}</div></div>
 <h2>特記事項</h2>
 <div class="remarks">該当なし</div>
@@ -237,7 +247,8 @@ def _page(card: Card, issued: dt.date) -> str:
 </section>"""
 
 
-def render_html(cards: Sequence[Card], issued: dt.date) -> str:
-    pages = "\n".join(_page(c, issued) for c in cards)
+def render_html(cards: Sequence[Card], issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
+    """black_e: E の科目の行を黒地に白文字にする。stamp: E のある学生のページに重ねるスタンプの文字。"""
+    pages = "\n".join(_page(c, issued, black_e, stamp) for c in cards)
     return (f'<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>通知表 2026年度前期</title>'
             f"<style>{CSS}</style></head><body>\n{pages}\n</body></html>")

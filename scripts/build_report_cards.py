@@ -1,6 +1,7 @@
 """通知表を全学生分作る（1人1ページの PDF。2026年度前期）。
 
     python3 scripts/build_report_cards.py [成績表のAI計算版.xlsx]
+    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # E の多い3人で見本3種類
 
 入力を省くと data/output/成績表_2026前期_AI計算版.xlsx（build_ai_version.py の出力）を読む。
 点数・評定・氏名は AI計算版シートの値。Excel 等で保存した計算済みの値があればそれを、無ければ LibreOffice で再計算して読む。
@@ -54,7 +55,14 @@ def computed(source: Path):
     return values
 
 
-def build(source: Path, issued: dt.date) -> Path:
+SAMPLES = [  # （ファイル名, E を黒塗り, スタンプ）
+    ("通知表_見本1_E黒塗り.pdf", True, None),
+    ("通知表_見本2_E黒塗り_単位不認定.pdf", True, "単位不認定"),
+    ("通知表_見本3_E黒塗り_支弁者へ連絡.pdf", True, "支弁者へ連絡"),
+]
+
+
+def all_cards(source: Path):
     values = computed(source)
     cards = []
     for sheet, dept, prefix in DEPTS:
@@ -62,17 +70,38 @@ def build(source: Path, issued: dt.date) -> Path:
         if not reg.students:
             raise ReportCardError(f"{source.name} に「{prefix}」の出席簿シートが無い")
         cards += read_cards(values[sheet], dept, subject_counts(reg))
-    PDF.parent.mkdir(parents=True, exist_ok=True)
-    page = PDF.with_suffix(".html")
-    page.write_text(render_html(cards, issued), encoding="utf-8")
+    return cards
+
+
+def to_pdf(page_html: str, pdf: Path) -> Path:
+    pdf.parent.mkdir(parents=True, exist_ok=True)
+    page = pdf.with_suffix(".html")
+    page.write_text(page_html, encoding="utf-8")
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([chromium(), "--headless", "--no-sandbox", "--disable-gpu", f"--user-data-dir={tmp}",
-                        "--no-pdf-header-footer", f"--print-to-pdf={PDF}", page.as_uri()],
+                        "--no-pdf-header-footer", f"--print-to-pdf={pdf}", page.as_uri()],
                        check=True, capture_output=True, timeout=300)
+    return pdf
+
+
+def build(source: Path, issued: dt.date) -> Path:
+    cards = all_cards(source)
     print(f"{len(cards)}人分")
-    return PDF
+    return to_pdf(render_html(cards, issued), PDF)
+
+
+def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
+    """E の科目が多い順に n 人を選び、見本を3種類作る。"""
+    worst = sorted(all_cards(source), key=lambda c: -sum(l.grade == "E" for l in c.lines))[:n]
+    for c in worst:
+        print(c.dept, c.student_id, "E", sum(l.grade == "E" for l in c.lines), "科目")
+    return [to_pdf(render_html(worst, issued, black_e, stamp), PDF.with_name(name)) for name, black_e, stamp in SAMPLES]
 
 
 if __name__ == "__main__":
-    src = Path(sys.argv[1]) if len(sys.argv) > 1 else OUTPUT
-    print(build(src, dt.date.today()))
+    args = [a for a in sys.argv[1:] if a != "--sample"]
+    src = Path(args[0]) if args else OUTPUT
+    if "--sample" in sys.argv:
+        print(*samples(src, dt.date.today()), sep="\n")
+    else:
+        print(build(src, dt.date.today()))

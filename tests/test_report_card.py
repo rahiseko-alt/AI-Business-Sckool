@@ -74,3 +74,16 @@ def test_html_shows_one_decimal_scores_issue_date_and_dash_for_failed_credit():
     assert "この書類は成績証明書ではありません" in page
     assert "46.3" in page          # 出席時数 50−3−2/3 = 46.33…
     assert "92.7%" in page         # 46.33… ÷ 50
+
+
+def test_e_rows_can_be_black_with_white_text_and_others_stay_plain():
+    cards = read_cards(_sheet(), "国際ビジネス科", _counts())
+    page = render_html(cards[:1], dt.date(2026, 10, 2), black_e=True)
+    assert page.count('<tr class="fail">') == 1        # ビジネス日本語のE だけ
+    assert render_html(cards[:1], dt.date(2026, 10, 2)).count('class="fail"') == 0
+
+
+def test_stamp_goes_only_on_cards_with_an_e():
+    cards = read_cards(_sheet(), "国際ビジネス科", _counts())
+    page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="単位不認定")
+    assert page.count('<div class="stamp">単位不認定</div>') == 1     # E のある1人目だけ
