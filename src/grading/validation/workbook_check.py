@@ -145,8 +145,7 @@ def check_errors(values_wb, report: Report):
                     report.findings.append(Finding("再計算エラーが無いか", f"{ws.title}!{c.coordinate}", c.value))
 
 
-def check_original(out_ws, original_ws, report: Report):
-    check = "原本シートが元の成績表と同じか"
+def check_original(out_ws, original_ws, report: Report, check: str = "原本シートが元の成績表と同じか"):
     for r in range(1, max(out_ws.max_row, original_ws.max_row) + 1):
         for c in range(1, max(out_ws.max_column, original_ws.max_column) + 1):
             report.add(check)
@@ -168,6 +167,15 @@ def ai_cells(original_ws, rules: Rules) -> set[tuple[int, int]]:
 def check_untouched(ai_ws, original_ws, rules: Rules, report: Report):
     check = "AIが書かないセルは原本のままか"
     allowed = ai_cells(original_ws, rules)
+    fixed = {c for s in rules.flat_ten for c in [_columns(original_ws)[(_subject(s), "授業態度")]]}
+    for r, c in sorted(allowed):
+        if c in fixed:
+            continue
+        report.add("AIのセルが数字の貼り付けでなく式か")
+        v = ai_ws.cell(r, c).value
+        if not (isinstance(v, str) and v.startswith("=")):
+            report.findings.append(Finding("AIのセルが数字の貼り付けでなく式か",
+                                           f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}", f"式ではなく {v!r}"))
     for r in range(1, max(ai_ws.max_row, original_ws.max_row) + 1):
         for c in range(1, max(ai_ws.max_column, original_ws.max_column) + 1):
             if (r, c) in allowed:
@@ -344,6 +352,9 @@ def verify(output: Path, values_wb, depts: Sequence[DeptSpec], rules: Rules) -> 
         original = load_workbook(d.original).worksheets[0]
         original_values = load_workbook(d.original, data_only=True).worksheets[0]
         check_original(formulas[f"原本_{d.short}"], original, report)
+        for ws in load_workbook(d.register).worksheets:
+            if re.search(r"\d+月$", ws.title.strip()) and "原紙" not in ws.title:
+                check_original(formulas[ws.title], ws, report, "出席簿シートが元の出席簿と同じか")
         check_untouched(formulas[f"AI計算版_{d.short}"], original, rules, report)
         check_ai_values(values_wb[f"AI計算版_{d.short}"], original_values, d, rules, report)
     check_linked(values_wb, depts, report)

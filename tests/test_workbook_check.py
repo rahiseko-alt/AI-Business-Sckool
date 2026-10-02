@@ -43,7 +43,8 @@ RULES = Rules({"マーケティング": (10, 1)}, "日本語運用力強化演�
 def test_only_the_ai_cells_may_differ_from_the_original():
     original, ai = _sheet(), _sheet()
     ai["A1"] = "成績表（AI計算版）"
-    ai["E6"], ai["F6"] = 8, 10
+    ai["E6"], ai["F6"] = "='出席集計_国際'!$G$4", "=10-2*'出席集計_国際'!$F$4"
+    ai["I6"] = "='出席集計_国際'!$G$4"
     report = Report()
     check_untouched(ai, original, RULES, report)
     assert report.ok
@@ -66,3 +67,13 @@ def test_report_says_pass_or_fail_in_plain_words():
     assert report.text().startswith("検算結果: 合格")
     report.findings.append(Finding("出席点", "AIBC26001", "表は7、数え直すと8"))
     assert "不合格（食い違い1件）" in report.text() and "× 出席点: 3件を照合、食い違い1件" in report.text()
+
+
+def test_a_pasted_number_in_an_ai_cell_is_reported():
+    original, ai = _sheet(), _sheet()
+    ai["A1"] = "成績表（AI計算版）"
+    ai["E6"], ai["F6"] = 8, "=10-2*'出席集計_国際'!$F$4"
+    ai["I6"] = "='出席集計_国際'!$G$4"
+    report = Report()
+    check_untouched(ai, original, RULES, report)
+    assert [(f.check, f.where) for f in report.findings] == [("AIのセルが数字の貼り付けでなく式か", "Sheet!E6")]

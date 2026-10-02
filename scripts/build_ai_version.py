@@ -18,11 +18,11 @@ AI計算版は原本を丸ごと写し、次のセルだけをAIの計算値に�
 """
 
 import datetime as dt
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from fractions import Fraction
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
@@ -33,9 +33,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from grading.export.copy_sheet import copy_sheet  # noqa: E402
 from grading.export.linked import (analysis_sheet, describe, deviation_sheet, distribution_sheet, e_sheet,  # noqa: E402
                                    helper_sheet, personal_sheet)
-from grading.export.fill import FilledValue, apply_ai_values, apply_rates, rate_columns  # noqa: E402
-from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
-from grading.rules.attendance_points import attendance_points  # noqa: E402
+from grading.export.attendance_link import copy_registers, link_ai_cells, tally_sheet, weekly_sheet  # noqa: E402
+from grading.export.fill import rate_columns  # noqa: E402
+from grading.importing.attendance import read_register  # noqa: E402
 from grading.validation.workbook_check import DeptSpec, Rules, verify  # noqa: E402
 
 DATA = ROOT / "data"
@@ -70,37 +70,6 @@ CHECK_REPORT = DATA / "output" / "検算結果.txt"
 RULES = Rules(ATTENDANCE, WEEKLY, MOMOI, ["ビジネス演習(理論)"], DATE_CORRECTIONS)
 
 
-def counts_of(register_name: str):
-    reg = read_register(DATA / "input" / register_name, date_corrections=DATE_CORRECTIONS)
-    counts = subject_counts(reg)
-    counts.update(weekly_counts(reg, WEEKLY))
-    return counts
-
-
-def ai_values(register_name: str, original_ws) -> list[FilledValue]:
-    counts = counts_of(register_name)
-    students = [str(original_ws.cell(r, 2).value).strip() for r in range(6, original_ws.max_row + 1)
-                if original_ws.cell(r, 2).value]
-    values = []
-    for subject, (maximum, step) in ATTENDANCE.items():
-        unit = "週" if subject == WEEKLY else "回"
-        for sid in students:
-            n = counts[(sid, subject)]
-            points, how = attendance_points(n.rate, maximum, step)
-            values.append(FilledValue(sid, subject, "出席", points,
-                                      f"授業{n.sessions}{unit}・欠席{n.absent}・遅刻{n.late} → {how}",
-                                      n.absent_cells + n.late_cells))
-    for subject in MOMOI:
-        for sid in students:
-            n = counts[(sid, subject)]
-            values.append(FilledValue(sid, subject, "授業態度", Fraction(10 - 2 * n.late),
-                                      f"10 − 2 × 遅刻{n.late}回", n.late_cells))
-    for sid in students:
-        values.append(FilledValue(sid, "ビジネス演習(理論)", "授業態度", Fraction(10),
-                                  "10 − 1 × 私語・居眠り・スマホ0回（遅刻は引かない）", ()))
-    return values
-
-
 def recalculated(path: Path):
     """LibreOffice で再計算した値のブックを返す。"""
     if not shutil.which("soffice"):
@@ -117,18 +86,26 @@ def recalculated(path: Path):
 def build_all() -> Path:
     wb = Workbook()
     wb.remove(wb.active)
+    originals = {}
     for register_name, original_name, dept in DEPTS:
         short = DEPT_SHORT[dept]
-        original = load_workbook(DATA / "input" / original_name).worksheets[0]
-        ai = copy_sheet(original, wb, f"AI計算版_{short}")
+        originals[dept] = load_workbook(DATA / "input" / original_name).worksheets[0]
+        ai = copy_sheet(originals[dept], wb, f"AI計算版_{short}")
         if isinstance(ai["A1"].value, str):
             ai["A1"].value += "（AI計算版）"
-        apply_ai_values(ai, ai_values(register_name, original))
-        # 出席点の横にある出席率の列も、出席簿から計算した率にそろえる（原本の率が残ると食い違って見えるため）
-        counts = counts_of(register_name)
-        apply_rates(ai, rate_columns(original), {k: v.rate for k, v in counts.items() if k[1] in ATTENDANCE})
     for register_name, original_name, dept in DEPTS:
-        copy_sheet(load_workbook(DATA / "input" / original_name).worksheets[0], wb, f"原本_{DEPT_SHORT[dept]}")
+        copy_sheet(originals[dept], wb, f"原本_{DEPT_SHORT[dept]}")
+    # 出席簿を丸ごと写し、AIが入れるセルは出席簿を数える式にする（数字の貼り付けはしない）
+    for register_name, original_name, dept in DEPTS:
+        short = DEPT_SHORT[dept]
+        ai = wb[f"AI計算版_{short}"]
+        reg = read_register(DATA / "input" / register_name, date_corrections=DATE_CORRECTIONS)
+        copy_registers(load_workbook(DATA / "input" / register_name), wb)
+        students = [(str(ai.cell(r, 2).value).strip(), f"'{ai.title}'!$C${r}")
+                    for r in range(6, ai.max_row + 1) if ai.cell(r, 2).value]
+        weekly = weekly_sheet(wb, reg, WEEKLY, students, f"週ごと_{short}")
+        tally = tally_sheet(wb, reg, ATTENDANCE, WEEKLY, students, f"出席集計_{short}", weekly)
+        link_ai_cells(ai, tally, rate_columns(originals[dept]), ATTENDANCE, MOMOI, ["ビジネス演習(理論)"])
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUTPUT)
 
@@ -143,7 +120,11 @@ def build_all() -> Path:
     analysis_sheet(wb, depts, others)
     distribution_sheet(wb, depts)
     deviation_sheet(wb, depts)
-    wb.move_sheet("分析用", offset=len(wb.sheetnames))
+    # 並び: AI計算版 → 原本 → 集計・分析 → 出席集計・週ごと → 出席簿 → 作業用
+    tail = [n for n in wb.sheetnames if n.startswith(("出席集計_", "週ごと_"))]
+    tail += [n for n in wb.sheetnames if re.search(r"\d+月$", n)] + ["分析用"]
+    for name in tail:
+        wb.move_sheet(name, offset=len(wb.sheetnames) - 1 - wb.sheetnames.index(name))
     wb.save(OUTPUT)
     for old in DATA.joinpath("output").glob("成績表_*ビジネス科_AI計算版*.xlsx"):
         old.unlink()
