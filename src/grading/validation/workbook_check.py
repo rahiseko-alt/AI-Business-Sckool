@@ -16,6 +16,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from grading.analysis.sheets import collect_tests
 from grading.analysis.test_stats import deviation_scores, judge, summarize
@@ -24,6 +25,7 @@ from grading.export.fill import _columns, _subject, rate_columns
 from grading.importing.attendance import read_register, unify_subject
 
 TOLERANCE = 1e-9
+_SUM = re.compile(r"^=SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)$")
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,7 @@ def ai_cells(original_ws, rules: Rules) -> set[tuple[int, int]]:
 def check_untouched(ai_ws, original_ws, rules: Rules, report: Report):
     check = "AIが書かないセルは原本のままか"
     allowed = ai_cells(original_ws, rules)
+    rate_cols = set(rate_columns(original_ws).values())
     fixed = {c for s in rules.flat_ten for c in [_columns(original_ws)[(_subject(s), "授業態度")]]}
     for r, c in sorted(allowed):
         if c in fixed:
@@ -184,6 +187,15 @@ def check_untouched(ai_ws, original_ws, rules: Rules, report: Report):
             a, b = ai_ws.cell(r, c).value, original_ws.cell(r, c).value
             if (r, c) == (1, 1) and isinstance(b, str):
                 b += "（AI計算版）"
+            total = _SUM.match(str(b or ""))
+            if total and r >= 6 and column_index_from_string(total.group(3)) in rate_cols:
+                # 合計が出席率の列まで足していた式は、その列を外す（利用者の指示）
+                b = f"=SUM({total.group(1)}{total.group(2)}:{get_column_letter(column_index_from_string(total.group(3)) - 1)}{total.group(4)})"
+                report.add("合計から出席率の列を外したか")
+                if not _same(a, b):
+                    report.findings.append(Finding("合計から出席率の列を外したか",
+                                                   f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}", f"{a!r}、正しくは {b!r}"))
+                continue
             if not _same(a, b):
                 report.findings.append(Finding(check, f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}", f"{a!r} ≠ 原本 {b!r}"))
 

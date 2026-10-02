@@ -34,7 +34,7 @@ from grading.export.copy_sheet import copy_sheet  # noqa: E402
 from grading.export.linked import (analysis_sheet, describe, deviation_sheet, distribution_sheet, e_sheet,  # noqa: E402
                                    helper_sheet, personal_sheet)
 from grading.export.attendance_link import copy_registers, link_ai_cells, tally_sheet, weekly_sheet  # noqa: E402
-from grading.export.fill import rate_columns  # noqa: E402
+from grading.export.fill import exclude_rates_from_totals, rate_columns  # noqa: E402
 from grading.importing.attendance import read_register  # noqa: E402
 from grading.validation.workbook_check import DeptSpec, Rules, verify  # noqa: E402
 
@@ -106,6 +106,8 @@ def build_all() -> Path:
         weekly = weekly_sheet(wb, reg, WEEKLY, students, f"週ごと_{short}")
         tally = tally_sheet(wb, reg, ATTENDANCE, WEEKLY, students, f"出席集計_{short}", weekly)
         link_ai_cells(ai, tally, rate_columns(originals[dept]), ATTENDANCE, MOMOI, ["ビジネス演習(理論)"])
+        # 原本の合計式が出席率の列まで足している科目は、その列を外す（利用者の指示 2026-10-02）
+        exclude_rates_from_totals(ai, rate_columns(originals[dept]))
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUTPUT)
 

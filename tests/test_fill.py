@@ -99,3 +99,29 @@ def test_rate_columns_come_from_the_original_formula_or_the_same_position(tmp_pa
     assert rate_columns(ws)["マーケティング"] == 11
     n = apply_rates(ws, rate_columns(ws), {("AIBC26001", "マーケティング"): Fraction(17, 18)})
     assert n == 1 and ws["K6"].value == float(Fraction(17, 18)) and ws["K6"].fill.fgColor.rgb.endswith("DDEBF7")
+
+
+def _totals_sheet():
+    from openpyxl import Workbook
+    ws = Workbook().active
+    ws["E3"], ws["E4"], ws["F4"], ws["G4"], ws["H4"] = "ビジネス演習（理論）", "出席", "テスト", "合計", "評定"
+    ws["B6"], ws["E6"], ws["F6"], ws["G6"] = "AIBC26001", 20, 40, "=SUM(E6:I6)"
+    ws["B7"], ws["E7"], ws["F7"], ws["G7"] = "AIBC26002", 20, 40, "=SUM(E7:F7)"
+    return ws
+
+
+def test_rate_column_is_taken_out_of_the_total_and_marked():
+    from grading.export.fill import FIX_FILL, exclude_rates_from_totals
+    ws = _totals_sheet()
+    fixed = exclude_rates_from_totals(ws, {"ビジネス演習(理論)": 9})
+    assert (ws["G6"].value, ws["G7"].value) == ("=SUM(E6:H6)", "=SUM(E7:F7)")
+    assert fixed == [("G6", "=SUM(E6:I6)", "=SUM(E6:H6)")]
+    assert ws["G6"].fill.fgColor.rgb.endswith(FIX_FILL.fgColor.rgb[-6:])
+
+
+def test_rate_column_in_the_middle_of_a_total_stops():
+    from grading.export.fill import exclude_rates_from_totals
+    ws = _totals_sheet()
+    ws["G6"] = "=SUM(E6:K6)"
+    with pytest.raises(ValueError):
+        exclude_rates_from_totals(ws, {"ビジネス演習(理論)": 9})

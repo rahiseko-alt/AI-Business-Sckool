@@ -142,3 +142,34 @@ def apply_rates(ai, rate_cols: dict[str, int], rates: dict[tuple[str, str], Frac
         ai.cell(rows[sid], col).fill = AI_FILL
         n += 1
     return n
+
+
+FIX_FILL = PatternFill("solid", fgColor="FCE4D6")   # 原本の式を利用者の指示で直したセル
+_SUM = re.compile(r"^=SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)$")
+
+
+def exclude_rates_from_totals(ai, rate_cols: dict[str, int]) -> list[tuple[str, str, str]]:
+    """合計の式（=SUM(左:右)）が出席率の列まで足していたら、その列を外す（利用者の指示）。直したセルは色を変える。
+
+    出席率の列が範囲の右端にあるときだけ直す。範囲の途中にあるときは、推測で直さずに止める。
+    返り値: [(セル, 元の式, 直した式)]。
+    """
+    fixed = []
+    for (subject, item), col in _columns(ai).items():
+        if item != "合計" or subject not in rate_cols:
+            continue
+        rate = rate_cols[subject]
+        for r in range(6, ai.max_row + 1):
+            cell = ai.cell(r, col)
+            m = _SUM.match(str(cell.value or ""))
+            if not ai.cell(r, 2).value or not m:
+                continue
+            left, right = column_index_from_string(m.group(1)), column_index_from_string(m.group(3))
+            if not left <= rate <= right:
+                continue
+            if rate != right:
+                raise ValueError(f"{cell.coordinate} の合計 {cell.value} の途中に出席率の列がある（直し方を決められない）")
+            new = f"=SUM({m.group(1)}{m.group(2)}:{get_column_letter(right - 1)}{m.group(4)})"
+            fixed.append((cell.coordinate, cell.value, new))
+            cell.value, cell.fill = new, FIX_FILL
+    return fixed
