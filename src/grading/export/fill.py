@@ -173,3 +173,37 @@ def exclude_rates_from_totals(ai, rate_cols: dict[str, int]) -> list[tuple[str, 
             fixed.append((cell.coordinate, cell.value, new))
             cell.value, cell.fill = new, FIX_FILL
     return fixed
+
+
+DIFF_FILL = PatternFill("solid", fgColor="FF0000")   # 原本と値が違うセル（赤塗り・白文字）
+DIFF_FONT = Font(color="FFFFFF", bold=True)
+
+
+def apply_corrections(ai, corrections: dict[tuple[str, str, str], object]) -> list[str]:
+    """利用者が指示した値の訂正 {(学籍番号, 科目, 評価項目): 値} を書く。セルが見つからなければ止める。"""
+    columns = _columns(ai)
+    rows = {str(ai.cell(r, 2).value).strip(): r for r in range(6, ai.max_row + 1) if ai.cell(r, 2).value}
+    out = []
+    for (sid, subject, item), value in corrections.items():
+        key = (_subject(subject), unify_subject(item))
+        if key not in columns or sid not in rows:
+            raise KeyError(f"訂正先が見つからない: {sid} {subject} {item}")
+        cell = ai.cell(rows[sid], columns[key])
+        cell.value = value
+        out.append(cell.coordinate)
+    return out
+
+
+def mark_differences(ai, ai_values, original_values) -> list[str]:
+    """再計算した値で AI計算版と原本を比べ、値が違うセルを赤塗り・白文字にする（ai は式のままのシート）。"""
+    out = []
+    for r in range(6, max(ai_values.max_row, original_values.max_row) + 1):
+        for c in range(1, max(ai_values.max_column, original_values.max_column) + 1):
+            a, b = ai_values.cell(r, c).value, original_values.cell(r, c).value
+            same = (a == b or (isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool)
+                               and abs(a - b) <= 1e-9 * max(1.0, abs(b))))
+            if not same:
+                cell = ai.cell(r, c)
+                cell.fill, cell.font = DIFF_FILL, DIFF_FONT
+                out.append(cell.coordinate)
+    return out

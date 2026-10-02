@@ -34,7 +34,7 @@ from grading.export.copy_sheet import copy_sheet  # noqa: E402
 from grading.export.linked import (analysis_sheet, describe, deviation_sheet, distribution_sheet, e_sheet,  # noqa: E402
                                    helper_sheet, personal_sheet)
 from grading.export.attendance_link import copy_registers, link_ai_cells, tally_sheet, weekly_sheet  # noqa: E402
-from grading.export.fill import exclude_rates_from_totals, rate_columns  # noqa: E402
+from grading.export.fill import apply_corrections, exclude_rates_from_totals, mark_differences, rate_columns  # noqa: E402
 from grading.importing.attendance import read_register  # noqa: E402
 from grading.validation.workbook_check import DeptSpec, Rules, verify  # noqa: E402
 
@@ -67,7 +67,10 @@ DEPT_SHORT = {"国際ビジネス科": "国際", "総合ビジネス科": "総�
 OUTPUT = DATA / "output" / "成績表_2026前期_AI計算版.xlsx"
 REJECTED = OUTPUT.with_name(OUTPUT.stem + "_検算不合格.xlsx")
 CHECK_REPORT = DATA / "output" / "検算結果.txt"
-RULES = Rules(ATTENDANCE, WEEKLY, MOMOI, ["ビジネス演習(理論)"], DATE_CORRECTIONS)
+CORRECTIONS = {  # 利用者の指示で値を直すセル {学科: {(学籍番号, 科目, 評価項目): 値}}
+    "国際ビジネス科": {("AIBC26018", "ビジネス演習(実践)", "筆記課題\n筆記テスト"): 25},   # 28点（満点25）→25
+}
+RULES = Rules(ATTENDANCE, WEEKLY, MOMOI, ["ビジネス演習(理論)"], DATE_CORRECTIONS, CORRECTIONS)
 
 
 def recalculated(path: Path):
@@ -108,6 +111,7 @@ def build_all() -> Path:
         link_ai_cells(ai, tally, rate_columns(originals[dept]), ATTENDANCE, MOMOI, ["ビジネス演習(理論)"])
         # 原本の合計式が出席率の列まで足している科目は、その列を外す（利用者の指示 2026-10-02）
         exclude_rates_from_totals(ai, rate_columns(originals[dept]))
+        apply_corrections(ai, CORRECTIONS.get(dept, {}))
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUTPUT)
 
@@ -127,6 +131,12 @@ def build_all() -> Path:
     tail += [n for n in wb.sheetnames if re.search(r"\d+月$", n)] + ["分析用"]
     for name in tail:
         wb.move_sheet(name, offset=len(wb.sheetnames) - 1 - wb.sheetnames.index(name))
+    wb.save(OUTPUT)
+    # 原本と値が違うセルを赤塗り・白文字にする（再計算した値で比べる）
+    values = recalculated(OUTPUT)
+    for _, _, dept in DEPTS:
+        short = DEPT_SHORT[dept]
+        mark_differences(wb[f"AI計算版_{short}"], values[f"AI計算版_{short}"], values[f"原本_{short}"])
     wb.save(OUTPUT)
     for old in DATA.joinpath("output").glob("成績表_*ビジネス科_AI計算版*.xlsx"):
         old.unlink()

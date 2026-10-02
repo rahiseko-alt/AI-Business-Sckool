@@ -125,3 +125,27 @@ def test_rate_column_in_the_middle_of_a_total_stops():
     ws["G6"] = "=SUM(E6:K6)"
     with pytest.raises(ValueError):
         exclude_rates_from_totals(ws, {"ビジネス演習(理論)": 9})
+
+
+def test_cells_that_differ_from_the_original_turn_red_with_white_text():
+    from openpyxl import Workbook
+    from grading.export.fill import mark_differences
+    ai, ai_values, original = Workbook().active, Workbook().active, Workbook().active
+    for ws in (ai_values, original):
+        ws["B6"], ws["E6"], ws["F6"] = "AIBC26001", 8, 50
+    ai_values["E6"], ai["E6"], ai["F6"] = 9, "=X", "=Y"
+    assert mark_differences(ai, ai_values, original) == ["E6"]
+    assert ai["E6"].fill.fgColor.rgb.endswith("FF0000") and ai["E6"].font.color.rgb.endswith("FFFFFF")
+    assert not ai["F6"].fill.fgColor.rgb.endswith("FF0000")
+
+
+def test_a_correction_is_written_to_the_cell_found_by_subject_and_item():
+    from openpyxl import Workbook
+    from grading.export.fill import apply_corrections
+    ws = Workbook().active
+    ws["E3"], ws["E4"], ws["F4"] = "ビジネス演習（実践）", "実技テスト", "筆記課題\n筆記テスト"
+    ws["B6"], ws["F6"] = "AIBC26018", 28
+    assert apply_corrections(ws, {("AIBC26018", "ビジネス演習(実践)", "筆記課題\n筆記テスト"): 25}) == ["F6"]
+    assert ws["F6"].value == 25
+    with pytest.raises(KeyError):
+        apply_corrections(ws, {("AIBC26099", "ビジネス演習(実践)", "筆記課題\n筆記テスト"): 25})

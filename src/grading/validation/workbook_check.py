@@ -43,6 +43,7 @@ class Rules:
     late_deduct: Sequence[str]                     # 態度点＝10−2×遅刻
     flat_ten: Sequence[str]                        # 態度点＝10（名前つき記録0件）
     date_corrections: Mapping[str, dt.date] = field(default_factory=dict)
+    corrections: Mapping[str, Mapping[tuple[str, str, str], object]] = field(default_factory=dict)  # 学科: {(学籍番号, 科目, 項目): 値}
 
 
 @dataclass(frozen=True)
@@ -156,6 +157,19 @@ def check_original(out_ws, original_ws, report: Report, check: str = "原本シ�
                 report.findings.append(Finding(check, f"{out_ws.title}!{out_ws.cell(r, c).coordinate}", f"{a!r} ≠ 元 {b!r}"))
 
 
+def check_red(ai_ws, ai_values_ws, original_values_ws, report: Report):
+    """原本と値が違うセルは赤、同じセルは赤でないこと。"""
+    check = "原本と値が違うセルだけが赤か"
+    for r in range(6, max(ai_values_ws.max_row, original_values_ws.max_row) + 1):
+        for c in range(1, max(ai_values_ws.max_column, original_values_ws.max_column) + 1):
+            differs = not _same(ai_values_ws.cell(r, c).value, original_values_ws.cell(r, c).value)
+            red = str(ai_ws.cell(r, c).fill.fgColor.rgb).endswith("FF0000")
+            report.add(check)
+            if differs != red:
+                report.findings.append(Finding(check, f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}",
+                                               "原本と違うのに赤でない" if differs else "原本と同じなのに赤"))
+
+
 def ai_cells(original_ws, rules: Rules) -> set[tuple[int, int]]:
     """AIが書いてよいセル。"""
     columns = _columns(original_ws)
@@ -166,9 +180,18 @@ def ai_cells(original_ws, rules: Rules) -> set[tuple[int, int]]:
     return {(r, c) for r in _rows(original_ws).values() for c in cols}
 
 
-def check_untouched(ai_ws, original_ws, rules: Rules, report: Report):
+def check_untouched(ai_ws, original_ws, rules: Rules, report: Report, corrections=None):
     check = "AIが書かないセルは原本のままか"
     allowed = ai_cells(original_ws, rules)
+    columns, rows = _columns(original_ws), _rows(original_ws)
+    corrected = set()
+    for (sid, subject, item), value in (corrections or {}).items():
+        r, c = rows[sid], columns[(_subject(subject), unify_subject(item))]
+        corrected.add((r, c))
+        report.add("指示された訂正が入っているか")
+        if not _same(ai_ws.cell(r, c).value, value):
+            report.findings.append(Finding("指示された訂正が入っているか", f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}",
+                                           f"{ai_ws.cell(r, c).value!r}、指示は {value!r}"))
     rate_cols = set(rate_columns(original_ws).values())
     fixed = {c for s in rules.flat_ten for c in [_columns(original_ws)[(_subject(s), "授業態度")]]}
     for r, c in sorted(allowed):
@@ -181,7 +204,7 @@ def check_untouched(ai_ws, original_ws, rules: Rules, report: Report):
                                            f"{ai_ws.title}!{ai_ws.cell(r, c).coordinate}", f"式ではなく {v!r}"))
     for r in range(1, max(ai_ws.max_row, original_ws.max_row) + 1):
         for c in range(1, max(ai_ws.max_column, original_ws.max_column) + 1):
-            if (r, c) in allowed:
+            if (r, c) in allowed or (r, c) in corrected:
                 continue
             report.add(check)
             a, b = ai_ws.cell(r, c).value, original_ws.cell(r, c).value
@@ -367,7 +390,8 @@ def verify(output: Path, values_wb, depts: Sequence[DeptSpec], rules: Rules) -> 
         for ws in load_workbook(d.register).worksheets:
             if re.search(r"\d+月$", ws.title.strip()) and "原紙" not in ws.title:
                 check_original(formulas[ws.title], ws, report, "出席簿シートが元の出席簿と同じか")
-        check_untouched(formulas[f"AI計算版_{d.short}"], original, rules, report)
+        check_untouched(formulas[f"AI計算版_{d.short}"], original, rules, report, rules.corrections.get(d.name))
+        check_red(formulas[f"AI計算版_{d.short}"], values_wb[f"AI計算版_{d.short}"], original_values, report)
         check_ai_values(values_wb[f"AI計算版_{d.short}"], original_values, d, rules, report)
     check_linked(values_wb, depts, report)
     return report
