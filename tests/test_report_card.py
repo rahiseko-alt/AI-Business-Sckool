@@ -86,4 +86,6 @@ def test_e_rows_can_be_black_with_white_text_and_others_stay_plain():
 def test_stamp_goes_only_on_cards_with_an_e():
     cards = read_cards(_sheet(), "国際ビジネス科", _counts())
     page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="単位不認定")
-    assert page.count('<div class="stamp">単位不認定</div>') == 1     # E のある1人目だけ
+    assert page.count('<div class="stamp body">単位不認定</div>') == 1     # E のある1人目だけ
+    page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="あなたは不合格です", place="title")
+    assert page.count('<div class="stamp title long">あなたは不合格です</div>') == 1

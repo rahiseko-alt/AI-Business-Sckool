@@ -174,11 +174,15 @@ td.c { text-align: center; }
 .foot .right { text-align: right; line-height: 1.7; }
 /* E の科目: 白黒印刷でも分かるよう黒地に白文字 */
 .fail td { background: #000; color: #fff; }
-/* スタンプ: 枠と文字だけの赤（中は透明）。まだ空欄の後期の欄に置き、記入済みの内容には重ねない */
-.stamp { position: absolute; left: 50%; top: 181mm; transform: translate(-50%, -50%) rotate(-14deg);
-         border: 3.2mm double rgba(205, 0, 0, .62); border-radius: 4mm; padding: 2mm 9mm;
-         color: rgba(205, 0, 0, .62); font-size: 52pt; font-weight: bold; letter-spacing: .12em; white-space: nowrap;
-         pointer-events: none; }
+/* スタンプ: 枠と文字だけの朱色（中は透明）。まっすぐ押し、記入済みの内容には重ねない */
+.stamp { position: absolute; border: 2.6mm double rgba(200, 16, 16, .72); border-radius: 1.2mm;
+         color: rgba(200, 16, 16, .72); font-weight: bold; white-space: nowrap; line-height: 1.15; pointer-events: none; }
+/* 位置1: まだ空欄の後期の欄（成績欄の中央） */
+.stamp.body { left: 50%; top: 181mm; transform: translate(-50%, -50%); font-size: 52pt; letter-spacing: .12em; padding: 2mm 9mm; }
+.stamp.body.long { font-size: 40pt; letter-spacing: .02em; padding: 2mm 6mm; }
+/* 位置2: 題名「通知表」の右（題名と学生欄のあいだの余白） */
+.stamp.title { right: 0; top: 8.5mm; font-size: 25pt; letter-spacing: .1em; padding: 0.3mm 4mm; border-width: 2mm; }
+.stamp.title.long { font-size: 17pt; letter-spacing: .02em; padding: 1mm 3mm; }
 """
 
 ROWS_PER_TERM = 13
@@ -223,10 +227,11 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
     return "".join(out)
 
 
-def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
-    # 長い文言は1行のまま、字間と余白を詰めて紙幅いっぱいに大きく見せる
-    size = ' style="font-size:47pt; letter-spacing:0; padding:2mm 4mm"' if stamp and len(stamp) > 6 else ""
-    mark = f'<div class="stamp"{size}>{_e(stamp)}</div>' if stamp and any(l.grade == "E" for l in card.lines) else ""
+def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None, place: str = "body") -> str:
+    mark = ""
+    if stamp and any(l.grade == "E" for l in card.lines):
+        size = " long" if len(stamp) > 6 else ""
+        mark = f'<div class="stamp {place}{size}">{_e(stamp)}</div>'
     return f"""<section class="page">{mark}
 <div class="top"><div class="school">学校法人海鵬学園<br><b>AIビジネス専門学校</b></div>
 <div class="notice">この書類は成績証明書ではありません</div></div>
@@ -249,8 +254,12 @@ def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None 
 </section>"""
 
 
-def render_html(cards: Sequence[Card], issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
-    """black_e: E の科目の行を黒地に白文字にする。stamp: E のある学生のページに重ねるスタンプの文字。"""
-    pages = "\n".join(_page(c, issued, black_e, stamp) for c in cards)
+def render_html(cards: Sequence[Card], issued: dt.date, black_e: bool = False, stamp: str | None = None,
+                place: str = "body") -> str:
+    """black_e: E の科目の行を黒地に白文字にする。stamp: E のある学生のページに押すスタンプの文字。
+    place: スタンプの位置。"body"＝空欄の後期の欄、"title"＝題名「通知表」の右。"""
+    if place not in ("body", "title"):
+        raise ValueError(place)
+    pages = "\n".join(_page(c, issued, black_e, stamp, place) for c in cards)
     return (f'<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>通知表 2026年度前期</title>'
             f"<style>{CSS}</style></head><body>\n{pages}\n</body></html>")

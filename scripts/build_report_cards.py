@@ -1,7 +1,7 @@
 """通知表を全学生分作る（1人1ページの PDF。2026年度前期）。
 
     python3 scripts/build_report_cards.py [成績表のAI計算版.xlsx]
-    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本2種類
+    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本4種類
 
 入力を省くと data/output/成績表_2026前期_AI計算版.xlsx（build_ai_version.py の出力）を読む。
 点数・評定・氏名は AI計算版シートの値。Excel 等で保存した計算済みの値があればそれを、無ければ LibreOffice で再計算して読む。
@@ -55,9 +55,11 @@ def computed(source: Path):
     return values
 
 
-SAMPLES = [  # （ファイル名, E を黒塗り, スタンプ）
-    ("通知表_見本4_E黒塗り_不合格.pdf", True, "不合格"),
-    ("通知表_見本5_E黒塗り_あなたは不合格です.pdf", True, "あなたは不合格です"),
+SAMPLES = [  # （ファイル名, E を黒塗り, スタンプ, 位置）
+    ("通知表_見本6_不合格_後期欄.pdf", True, "不合格", "body"),
+    ("通知表_見本7_不合格_題名横.pdf", True, "不合格", "title"),
+    ("通知表_見本8_あなたは不合格です_後期欄.pdf", True, "あなたは不合格です", "body"),
+    ("通知表_見本9_あなたは不合格です_題名横.pdf", True, "あなたは不合格です", "title"),
 ]
 
 
@@ -97,7 +99,8 @@ def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
     worst = [by_dept[i % len(by_dept)][i // len(by_dept)] for i in range(n)]
     for c in worst:
         print(c.dept, c.student_id, "E", sum(l.grade == "E" for l in c.lines), "科目")
-    return [to_pdf(render_html(worst, issued, black_e, stamp), PDF.with_name(name)) for name, black_e, stamp in SAMPLES]
+    return [to_pdf(render_html(worst, issued, black_e, stamp, place), PDF.with_name(name))
+            for name, black_e, stamp, place in SAMPLES]
 
 
 if __name__ == "__main__":
