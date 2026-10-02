@@ -5,6 +5,7 @@
 出力は両学科で1ファイル（data/output/成績表_2026前期_AI計算版.xlsx）。シート:
   AI計算版_国際／AI計算版_総合／原本_国際／原本_総合／E一覧_国際／E一覧_総合／E一覧_統合／個人別評定_国際／個人別評定_総合
 AI計算版は原本を丸ごと写し、次のセルだけをAIの計算値に置き換える（色付き）。それ以外は原本のまま（合計等の式も残る）。
+出席点の横にある出席率の列も、出席簿から計算した率（丸めない）に置き換える。
 E一覧と個人別評定は、AI計算版を LibreOffice で再計算した値から作る。
 入力は data/input/（Git 対象外）。ここに書いた決まりは、すべて利用者の回答（data/input/decisions.json）による。
 - 出席点（7科目）: 出席簿だけから計算。出席率＝1−（欠＋遅÷3）÷授業数（出席簿にある式）。4%ごとに減点、60%未満は0点
@@ -30,7 +31,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from grading.export.copy_sheet import copy_sheet  # noqa: E402
 from grading.export.e_list import add_e_matrix, add_personal_grades, gpa_of, grade_rows  # noqa: E402
-from grading.export.fill import FilledValue, apply_ai_values  # noqa: E402
+from grading.export.fill import FilledValue, apply_ai_values, apply_rates, rate_columns  # noqa: E402
 from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
 from grading.rules.attendance_points import attendance_points  # noqa: E402
 
@@ -63,10 +64,15 @@ DEPT_SHORT = {"国際ビジネス科": "国際", "総合ビジネス科": "総�
 OUTPUT = DATA / "output" / "成績表_2026前期_AI計算版.xlsx"
 
 
-def ai_values(register_name: str, original_ws) -> list[FilledValue]:
+def counts_of(register_name: str):
     reg = read_register(DATA / "input" / register_name, date_corrections=DATE_CORRECTIONS)
     counts = subject_counts(reg)
     counts.update(weekly_counts(reg, WEEKLY))
+    return counts
+
+
+def ai_values(register_name: str, original_ws) -> list[FilledValue]:
+    counts = counts_of(register_name)
     students = [str(original_ws.cell(r, 2).value).strip() for r in range(6, original_ws.max_row + 1)
                 if original_ws.cell(r, 2).value]
     values = []
@@ -112,6 +118,9 @@ def build_all() -> Path:
         if isinstance(ai["A1"].value, str):
             ai["A1"].value += "（AI計算版）"
         apply_ai_values(ai, ai_values(register_name, original))
+        # 出席点の横にある出席率の列も、出席簿から計算した率にそろえる（原本の率が残ると食い違って見えるため）
+        counts = counts_of(register_name)
+        apply_rates(ai, rate_columns(original), {k: v.rate for k, v in counts.items() if k[1] in ATTENDANCE})
     for register_name, original_name, dept in DEPTS:
         copy_sheet(load_workbook(DATA / "input" / original_name).worksheets[0], wb, f"原本_{DEPT_SHORT[dept]}")
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

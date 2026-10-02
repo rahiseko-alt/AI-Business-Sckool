@@ -4,6 +4,7 @@
 入れた値はすべて「根拠」シートに、計算式と元のセルを添えて並べる。値は丸めない（割り切れない値は分数で残す）。
 """
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -11,7 +12,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from grading.export.provenance import format_number
 from grading.importing.attendance import unify_subject
@@ -103,3 +104,41 @@ def apply_ai_values(ai, values: Sequence[FilledValue]) -> int:
         ai.cell(r, c).value = int(v.value) if v.value.denominator == 1 else float(v.value)
         ai.cell(r, c).fill = AI_FILL
     return len(written)
+
+
+_RATE_REF = re.compile(r"\(1-([A-Z]+)\d+\)")
+
+
+def rate_columns(original) -> dict[str, int]:
+    """原本の出席の式（=10-((1-I6)/0.04)）が参照している出席率の列を、科目ごとに返す。
+
+    式が無い科目は、ほかの科目と同じ位置（出席の列＋4）を、その列の値がすべて0〜1のときだけ使う。
+    """
+    out = {}
+    for (subject, item), col in _columns(original).items():
+        if item != "出席":
+            continue
+        refs = {m.group(1) for r in range(6, original.max_row + 1)
+                for m in [_RATE_REF.search(str(original.cell(r, col).value or ""))] if m}
+        if len(refs) == 1:
+            out[subject] = column_index_from_string(refs.pop())
+            continue
+        guess = col + 4
+        values = [original.cell(r, guess).value for r in range(6, original.max_row + 1) if original.cell(r, 2).value]
+        if original.cell(4, guess).value is None and values and all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in values):
+            out[subject] = guess
+    return out
+
+
+def apply_rates(ai, rate_cols: dict[str, int], rates: dict[tuple[str, str], Fraction]) -> int:
+    """出席率の列を、出席簿から計算した出席率（丸めない）に置き換えて色を付ける。"""
+    rows = {str(ai.cell(r, 2).value).strip(): r for r in range(6, ai.max_row + 1) if ai.cell(r, 2).value}
+    n = 0
+    for (sid, subject), rate in rates.items():
+        col = rate_cols.get(_subject(subject))
+        if col is None or sid not in rows:
+            continue
+        ai.cell(rows[sid], col).value = int(rate) if rate.denominator == 1 else float(rate)
+        ai.cell(rows[sid], col).fill = AI_FILL
+        n += 1
+    return n

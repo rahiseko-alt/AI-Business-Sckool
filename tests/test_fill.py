@@ -87,3 +87,15 @@ def test_unknown_item_stops(tmp_path):
     ws = load_workbook(_original(tmp_path / "o.xlsx")).worksheets[0]
     with pytest.raises(KeyError):
         apply_ai_values(ws, [_v("AIBC26001", "マーケティング", "発表", 9)])
+
+
+def test_rate_columns_come_from_the_original_formula_or_the_same_position(tmp_path):
+    from grading.export.fill import apply_rates, rate_columns
+    ws = load_workbook(_original(tmp_path / "o.xlsx")).worksheets[0]
+    ws["M6"] = 0.9     # ビジネス日本語の出席(I)＋4 の位置に率がある（式なし）
+    cols = rate_columns(ws)
+    assert cols == {"ビジネス日本語": 13}   # マーケの＋4の位置（I列）は7で率ではないので使わない
+    ws["E6"] = "=10-((1-K6)/0.04)"
+    assert rate_columns(ws)["マーケティング"] == 11
+    n = apply_rates(ws, rate_columns(ws), {("AIBC26001", "マーケティング"): Fraction(17, 18)})
+    assert n == 1 and ws["K6"].value == float(Fraction(17, 18)) and ws["K6"].fill.fgColor.rgb.endswith("DDEBF7")
