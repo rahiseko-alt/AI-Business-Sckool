@@ -86,9 +86,11 @@ def to_pdf(page_html: str, pdf: Path) -> Path:
 
 
 def build(source: Path, issued: dt.date) -> Path:
+    """本番の形（利用者が見本⑦を選択、2026-10-02）: E の科目は黒地に白文字。E のある学生は題名の右に
+    黒地に白文字の「不合格」スタンプをまっすぐ押す。"""
     cards = all_cards(source)
-    print(f"{len(cards)}人分")
-    return to_pdf(render_html(cards, issued), PDF)
+    print(f"{len(cards)}人分（うち不合格のスタンプ {sum(any(l.grade == 'E' for l in c.lines) for c in cards)}人）")
+    return to_pdf(render_html(cards, issued, black_e=True, stamp="不合格", place="title", solid=True), PDF)
 
 
 def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:

@@ -89,3 +89,9 @@ def test_stamp_goes_only_on_cards_with_an_e():
     assert page.count('<div class="stamp body">単位不認定</div>') == 1     # E のある1人目だけ
     page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="あなたは不合格です", place="title")
     assert page.count('<div class="stamp title long">あなたは不合格です</div>') == 1
+
+
+def test_solid_stamp_is_black_with_white_text():
+    cards = read_cards(_sheet(), "国際ビジネス科", _counts())
+    page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="不合格", place="title", solid=True)
+    assert page.count('<div class="stamp title solid">不合格</div>') == 1
