@@ -3,7 +3,8 @@
     python3 scripts/build_ai_version.py
 
 出力は両学科で1ファイル（data/output/成績表_2026前期_AI計算版.xlsx）。シート:
-  AI計算版_国際／AI計算版_総合／原本_国際／原本_総合／E一覧_国際／E一覧_総合／E一覧_統合／個人別評定_国際／個人別評定_総合
+  AI計算版_国際／AI計算版_総合／原本_国際／原本_総合／E一覧_国際／E一覧_総合／E一覧_統合／個人別評定_国際／個人別評定_総合／
+  テスト分析／偏差値
 AI計算版は原本を丸ごと写し、次のセルだけをAIの計算値に置き換える（色付き）。それ以外は原本のまま（合計等の式も残る）。
 出席点の横にある出席率の列も、出席簿から計算した率（丸めない）に置き換える。
 E一覧と個人別評定は、AI計算版を LibreOffice で再計算した値から作る。
@@ -29,6 +30,7 @@ from openpyxl import Workbook, load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from grading.analysis.sheets import add_deviation_sheet, add_test_analysis, collect_tests  # noqa: E402
 from grading.export.copy_sheet import copy_sheet  # noqa: E402
 from grading.export.e_list import add_e_matrix, add_personal_grades, gpa_of, grade_rows  # noqa: E402
 from grading.export.fill import FilledValue, apply_ai_values, apply_rates, rate_columns  # noqa: E402
@@ -136,6 +138,9 @@ def build_all() -> Path:
     add_e_matrix(wb, [(d, r, i) for d, r, i, _ in groups], "E一覧_統合")
     for dept, rows, _, gpa in groups:
         add_personal_grades(wb, rows, gpa, title=f"個人別評定_{DEPT_SHORT[dept]}")   # GPA評定は基準が未定のため空欄
+    tests = [t for _, _, dept in DEPTS for t in collect_tests(values[f"AI計算版_{DEPT_SHORT[dept]}"], dept)]
+    add_test_analysis(wb, tests)
+    add_deviation_sheet(wb, tests)
     wb.save(OUTPUT)
     for old in DATA.joinpath("output").glob("成績表_*ビジネス科_AI計算版*.xlsx"):
         old.unlink()
