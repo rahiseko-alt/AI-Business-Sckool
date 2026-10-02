@@ -66,8 +66,9 @@ class Register:
     dates: set[dt.date] = field(default_factory=set)        # 見出しに書かれていた日付
 
 
-def _month_sheets(wb):
-    return [ws for ws in wb.worksheets if re.search(r"\d+月$", ws.title.strip()) and "原紙" not in ws.title]
+def _month_sheets(wb, prefix: str = ""):
+    return [ws for ws in wb.worksheets if re.search(r"\d+月$", ws.title.strip()) and "原紙" not in ws.title
+            and ws.title.startswith(prefix)]
 
 
 def _end_column(ws) -> int:
@@ -77,12 +78,14 @@ def _end_column(ws) -> int:
     raise ValueError(f"{ws.title}: 「授業合計数」の見出しが無い")
 
 
-def read_register(path: str | Path, date_corrections: Mapping[str, dt.date] | None = None) -> Register:
-    """date_corrections: {「シート名!H3」: 正しい日付}。利用者の回答で決まった訂正だけを渡す。"""
+def read_register(path: str | Path, date_corrections: Mapping[str, dt.date] | None = None,
+                  sheet_prefix: str = "") -> Register:
+    """date_corrections: {「シート名!H3」: 正しい日付}。利用者の回答で決まった訂正だけを渡す。
+    sheet_prefix: 2学科の出席簿を写したブック（成績表のAI計算版）から1学科分だけ読むときのシート名の頭。"""
     corrections = dict(date_corrections or {})
     wb = load_workbook(path)
     reg = Register(str(path))
-    for ws in _month_sheets(wb):
+    for ws in _month_sheets(wb, sheet_prefix):
         month = int(re.search(r"(\d+)月$", ws.title.strip()).group(1))
         end = _end_column(ws)
         rows = [r for r in range(6, ws.max_row + 1) if ws.cell(r, 2).value]
