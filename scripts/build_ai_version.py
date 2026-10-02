@@ -7,7 +7,7 @@
   テスト分析／度数分布／偏差値
 AI計算版は原本を丸ごと写し、次のセルだけをAIの計算値に置き換える（色付き）。それ以外は原本のまま（合計等の式も残る）。
 出席点の横にある出席率の列も、出席簿から計算した率（丸めない）に置き換える。
-E一覧と個人別評定は、AI計算版を LibreOffice で再計算した値から作る。
+個人別評定・E一覧・テスト分析・度数分布・偏差値は、すべて AI計算版を参照する式（AI計算版を直せば全シートが変わる）。
 入力は data/input/（Git 対象外）。ここに書いた決まりは、すべて利用者の回答（data/input/decisions.json）による。
 - 出席点（7科目）: 出席簿だけから計算。出席率＝1−（欠＋遅÷3）÷授業数（出席簿にある式）。4%ごとに減点、60%未満は0点
   - 日本語運用力強化演習は1週＝1回（その週に1回でも出席なら出席）
@@ -30,13 +30,13 @@ from openpyxl import Workbook, load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from grading.analysis.distribution import add_distribution_sheet  # noqa: E402
-from grading.analysis.sheets import add_deviation_sheet, add_test_analysis, collect_tests  # noqa: E402
 from grading.export.copy_sheet import copy_sheet  # noqa: E402
-from grading.export.e_list import add_e_matrix, add_personal_grades, gpa_of, grade_rows  # noqa: E402
+from grading.export.linked import (analysis_sheet, describe, deviation_sheet, distribution_sheet, e_sheet,  # noqa: E402
+                                   helper_sheet, personal_sheet)
 from grading.export.fill import FilledValue, apply_ai_values, apply_rates, rate_columns  # noqa: E402
 from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
 from grading.rules.attendance_points import attendance_points  # noqa: E402
+from grading.validation.workbook_check import DeptSpec, Rules, verify  # noqa: E402
 
 DATA = ROOT / "data"
 DATE_CORRECTIONS = {"国際ビジネスAI科 5月!CE3": dt.date(2026, 5, 26)}
@@ -65,6 +65,9 @@ SCHEDULE_BY_DEPT = {
 }
 DEPT_SHORT = {"国際ビジネス科": "国際", "総合ビジネス科": "総合"}
 OUTPUT = DATA / "output" / "成績表_2026前期_AI計算版.xlsx"
+REJECTED = OUTPUT.with_name(OUTPUT.stem + "_検算不合格.xlsx")
+CHECK_REPORT = DATA / "output" / "検算結果.txt"
+RULES = Rules(ATTENDANCE, WEEKLY, MOMOI, ["ビジネス演習(理論)"], DATE_CORRECTIONS)
 
 
 def counts_of(register_name: str):
@@ -129,25 +132,38 @@ def build_all() -> Path:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     wb.save(OUTPUT)
 
-    values = recalculated(OUTPUT)
-    groups = []
-    for _, _, dept in DEPTS:
-        sheet = values[f"AI計算版_{DEPT_SHORT[dept]}"]
-        groups.append((dept, grade_rows(sheet), {**SCHEDULE, **SCHEDULE_BY_DEPT[dept]}, gpa_of(sheet)))
-    for dept, rows, info, _ in groups:
-        add_e_matrix(wb, [(dept, rows, info)], f"E一覧_{DEPT_SHORT[dept]}")
-    add_e_matrix(wb, [(d, r, i) for d, r, i, _ in groups], "E一覧_統合")
-    for dept, rows, _, gpa in groups:
-        add_personal_grades(wb, rows, gpa, title=f"個人別評定_{DEPT_SHORT[dept]}")   # GPA評定は基準が未定のため空欄
-    tests = [t for _, _, dept in DEPTS for t in collect_tests(values[f"AI計算版_{DEPT_SHORT[dept]}"], dept)]
-    add_test_analysis(wb, tests)
-    add_distribution_sheet(wb, [(dept, rows) for dept, rows, _, _ in groups])
-    add_deviation_sheet(wb, tests)
+    depts = [describe(wb[f"AI計算版_{DEPT_SHORT[dept]}"], dept, DEPT_SHORT[dept], {**SCHEDULE, **SCHEDULE_BY_DEPT[dept]})
+             for _, _, dept in DEPTS]
+    for d in depts:
+        personal_sheet(wb, d)          # GPA評定は基準が未定のため空欄
+    for d in depts:
+        e_sheet(wb, [d], f"E一覧_{d.short}")
+    e_sheet(wb, depts, "E一覧_統合")
+    others = helper_sheet(wb, depts)
+    analysis_sheet(wb, depts, others)
+    distribution_sheet(wb, depts)
+    deviation_sheet(wb, depts)
+    wb.move_sheet("分析用", offset=len(wb.sheetnames))
     wb.save(OUTPUT)
     for old in DATA.joinpath("output").glob("成績表_*ビジネス科_AI計算版*.xlsx"):
         old.unlink()
     return OUTPUT
 
 
+def check(path: Path = OUTPUT):
+    """検算。食い違いが1件でもあれば、出力を「検算不合格」の名前に変えて使えなくする。"""
+    specs = [DeptSpec(dept, DEPT_SHORT[dept], DATA / "input" / reg, DATA / "input" / orig) for reg, orig, dept in DEPTS]
+    report = verify(path, recalculated(path), specs, RULES)
+    CHECK_REPORT.write_text(report.text(), encoding="utf-8")
+    REJECTED.unlink(missing_ok=True)
+    if not report.ok:
+        path.rename(REJECTED)
+    return report
+
+
 if __name__ == "__main__":
-    print(build_all())
+    out = build_all()
+    report = check(out)
+    print(report.text())
+    print(out if report.ok else f"検算不合格のため {REJECTED.name} に名前を変えた（使わないこと）")
+    sys.exit(0 if report.ok else 1)
