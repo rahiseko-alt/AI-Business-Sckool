@@ -224,7 +224,8 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
 
 
 def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
-    mark = f'<div class="stamp">{_e(stamp)}</div>' if stamp and any(l.grade == "E" for l in card.lines) else ""
+    size = f' style="font-size:{max(30, min(52, 330 // len(stamp)))}pt"' if stamp and len(stamp) > 6 else ""   # 長い文言は紙幅に収める
+    mark = f'<div class="stamp"{size}>{_e(stamp)}</div>' if stamp and any(l.grade == "E" for l in card.lines) else ""
     return f"""<section class="page">{mark}
 <div class="top"><div class="school">学校法人海鵬学園<br><b>AIビジネス専門学校</b></div>
 <div class="notice">この書類は成績証明書ではありません</div></div>

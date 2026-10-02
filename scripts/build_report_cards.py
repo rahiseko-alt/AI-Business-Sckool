@@ -1,7 +1,7 @@
 """通知表を全学生分作る（1人1ページの PDF。2026年度前期）。
 
     python3 scripts/build_report_cards.py [成績表のAI計算版.xlsx]
-    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本3種類
+    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本2種類
 
 入力を省くと data/output/成績表_2026前期_AI計算版.xlsx（build_ai_version.py の出力）を読む。
 点数・評定・氏名は AI計算版シートの値。Excel 等で保存した計算済みの値があればそれを、無ければ LibreOffice で再計算して読む。
@@ -56,9 +56,8 @@ def computed(source: Path):
 
 
 SAMPLES = [  # （ファイル名, E を黒塗り, スタンプ）
-    ("通知表_見本1_E黒塗り.pdf", True, None),
-    ("通知表_見本2_E黒塗り_単位不認定.pdf", True, "単位不認定"),
-    ("通知表_見本3_E黒塗り_支弁者へ連絡.pdf", True, "支弁者へ連絡"),
+    ("通知表_見本4_E黒塗り_不合格.pdf", True, "不合格"),
+    ("通知表_見本5_E黒塗り_あなたは不合格です.pdf", True, "あなたは不合格です"),
 ]
 
 
@@ -91,7 +90,7 @@ def build(source: Path, issued: dt.date) -> Path:
 
 
 def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
-    """合否がまばらな（E の科目数が受講科目の半分に近い）n 人を、学科が偏らないよう交互に選び、見本を3種類作る。"""
+    """合否がまばらな（E の科目数が受講科目の半分に近い）n 人を、学科が偏らないよう交互に選び、見本を作る。"""
     def spread(c):
         return abs(sum(l.grade == "E" for l in c.lines) - len(c.lines) / 2), c.student_id
     by_dept = [sorted((c for c in all_cards(source) if c.dept == dept), key=spread) for _, dept, _ in DEPTS]
