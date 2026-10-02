@@ -1,7 +1,7 @@
 """通知表を全学生分作る（1人1ページの PDF。2026年度前期）。
 
     python3 scripts/build_report_cards.py [成績表のAI計算版.xlsx]
-    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # E の多い3人で見本3種類
+    python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本3種類
 
 入力を省くと data/output/成績表_2026前期_AI計算版.xlsx（build_ai_version.py の出力）を読む。
 点数・評定・氏名は AI計算版シートの値。Excel 等で保存した計算済みの値があればそれを、無ければ LibreOffice で再計算して読む。
@@ -91,8 +91,11 @@ def build(source: Path, issued: dt.date) -> Path:
 
 
 def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
-    """E の科目が多い順に n 人を選び、見本を3種類作る。"""
-    worst = sorted(all_cards(source), key=lambda c: -sum(l.grade == "E" for l in c.lines))[:n]
+    """合否がまばらな（E の科目数が受講科目の半分に近い）n 人を、学科が偏らないよう交互に選び、見本を3種類作る。"""
+    def spread(c):
+        return abs(sum(l.grade == "E" for l in c.lines) - len(c.lines) / 2), c.student_id
+    by_dept = [sorted((c for c in all_cards(source) if c.dept == dept), key=spread) for _, dept, _ in DEPTS]
+    worst = [by_dept[i % len(by_dept)][i // len(by_dept)] for i in range(n)]
     for c in worst:
         print(c.dept, c.student_id, "E", sum(l.grade == "E" for l in c.lines), "科目")
     return [to_pdf(render_html(worst, issued, black_e, stamp), PDF.with_name(name)) for name, black_e, stamp in SAMPLES]
