@@ -224,7 +224,8 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
 
 
 def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None) -> str:
-    size = f' style="font-size:{max(30, min(52, 330 // len(stamp)))}pt"' if stamp and len(stamp) > 6 else ""   # 長い文言は紙幅に収める
+    # 長い文言は1行のまま、字間と余白を詰めて紙幅いっぱいに大きく見せる
+    size = ' style="font-size:47pt; letter-spacing:0; padding:2mm 4mm"' if stamp and len(stamp) > 6 else ""
     mark = f'<div class="stamp"{size}>{_e(stamp)}</div>' if stamp and any(l.grade == "E" for l in card.lines) else ""
     return f"""<section class="page">{mark}
 <div class="top"><div class="school">学校法人海鵬学園<br><b>AIビジネス専門学校</b></div>
