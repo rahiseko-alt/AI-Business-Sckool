@@ -164,6 +164,9 @@ th { background: #e8e8e8; font-weight: normal; white-space: nowrap; }
 td.n { text-align: right; font-variant-numeric: tabular-nums; }
 td.c { text-align: center; }
 .profile th { width: 17mm; }
+.profile td { white-space: nowrap; }
+.profile td.nm { white-space: normal; width: 50%; }   /* 長い英語の氏名は氏名欄の中だけで折り返す */
+.profile td.small { font-size: 8pt; }
 .two { display: flex; gap: 4mm; }
 .two > div { flex: 1; min-width: 0; }
 .year { text-align: left; background: #fff; font-weight: bold; border: none; padding-left: 0; }
@@ -231,18 +234,18 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
 
 
 def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None = None, place: str = "body",
-          solid: bool = False) -> str:
+          solid: bool = False, kind: str = "通知表") -> str:
     mark = ""
     if stamp and any(l.grade == "E" for l in card.lines):
         size = " long" if len(stamp) > 6 else ""
         mark = f'<div class="stamp {place}{size}{" solid" if solid else ""}">{_e(stamp)}</div>'
     return f"""<section class="page">{mark}
 <div class="top"><div class="school">学校法人海鵬学園<br><b>AIビジネス専門学校</b></div>
-<div class="notice">この書類は成績証明書ではありません</div></div>
-<h1>通知表</h1>
+{'<div class="notice">この書類は成績証明書ではありません</div>' if kind == "通知表" else ""}</div>
+<h1>{_e(kind)}</h1>
 <table class="profile">
-<tr><th>学科</th><td>{_e(card.dept)}</td><th>日本語氏名</th><td>{_e(card.name_ja)}</td><th>学籍番号</th><td>{_e(card.student_id)}</td></tr>
-<tr><th>学年</th><td>1年</td><th>英語氏名</th><td>{_e(card.name_en)}</td><th>発行日</th><td>{_date(issued)}</td></tr>
+<tr><th>学科</th><td>{_e(card.dept)}</td><th>日本語氏名</th><td class="nm">{_e(card.name_ja)}</td><th>学籍番号</th><td>{_e(card.student_id)}</td></tr>
+<tr><th>学年</th><td>1年</td><th>英語氏名</th><td class="nm{' small' if len(card.name_en) > 30 else ''}">{_e(card.name_en)}</td><th>発行日</th><td>{_date(issued)}</td></tr>
 <tr><th>対象期間</th><td colspan="5">2026年度 前期</td></tr>
 </table>
 <h2>出席（1年・2年／前期・後期）</h2>
@@ -259,11 +262,12 @@ def _page(card: Card, issued: dt.date, black_e: bool = False, stamp: str | None 
 
 
 def render_html(cards: Sequence[Card], issued: dt.date, black_e: bool = False, stamp: str | None = None,
-                place: str = "body", solid: bool = False) -> str:
+                place: str = "body", solid: bool = False, kind: str = "通知表") -> str:
     """black_e: E の科目の行を黒地に白文字にする。stamp: E のある学生のページに押すスタンプの文字。
-    place: スタンプの位置。"body"＝空欄の後期の欄、"title"＝題名「通知表」の右。solid: スタンプを黒地に白文字にする。"""
-    if place not in ("body", "title"):
-        raise ValueError(place)
-    pages = "\n".join(_page(c, issued, black_e, stamp, place, solid) for c in cards)
-    return (f'<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>通知表 2026年度前期</title>'
+    place: スタンプの位置。"body"＝空欄の後期の欄、"title"＝題名「通知表」の右。solid: スタンプを黒地に白文字にする。
+    kind: 書類の種類。"通知表"（右上に「成績証明書ではありません」）か "成績証明書"（中身は同じ、注記なし）。"""
+    if place not in ("body", "title") or kind not in ("通知表", "成績証明書"):
+        raise ValueError((place, kind))
+    pages = "\n".join(_page(c, issued, black_e, stamp, place, solid, kind) for c in cards)
+    return (f'<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>{kind} 2026年度前期</title>'
             f"<style>{CSS}</style></head><body>\n{pages}\n</body></html>")

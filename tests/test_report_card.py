@@ -95,3 +95,11 @@ def test_solid_stamp_is_black_with_white_text():
     cards = read_cards(_sheet(), "国際ビジネス科", _counts())
     page = render_html(cards, dt.date(2026, 10, 2), black_e=True, stamp="不合格", place="title", solid=True)
     assert page.count('<div class="stamp title solid">不合格</div>') == 1
+
+
+def test_certificate_has_its_title_and_no_not_a_certificate_notice():
+    cards = read_cards(_sheet(), "国際ビジネス科", _counts())
+    page = render_html(cards, dt.date(2026, 10, 2), kind="成績証明書")
+    assert "<h1>成績証明書</h1>" in page and "<h1>通知表</h1>" not in page
+    assert "この書類は成績証明書ではありません" not in page
+    assert 'class="fail"' not in page and 'class="stamp' not in page

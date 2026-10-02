@@ -1,6 +1,7 @@
 """通知表を全学生分作る（1人1ページの PDF。2026年度前期）。
 
     python3 scripts/build_report_cards.py [成績表のAI計算版.xlsx]
+    python3 scripts/build_report_cards.py --certificate AIBC26056,AIBC26059 [成績表のAI計算版.xlsx]   # 指定した人の成績証明書（塗らない）
     python3 scripts/build_report_cards.py --sample [成績表のAI計算版.xlsx]   # 合否がまばらな3人で見本4種類
 
 入力を省くと data/output/成績表_2026前期_AI計算版.xlsx（build_ai_version.py の出力）を読む。
@@ -93,6 +94,18 @@ def build(source: Path, issued: dt.date) -> Path:
     return to_pdf(render_html(cards, issued, black_e=True, stamp="不合格", place="title", solid=True), PDF)
 
 
+def certificates(source: Path, issued: dt.date, ids: list[str]) -> Path:
+    """指定した学生だけの成績証明書（中身は通知表と同じ。黒塗り・スタンプ無し）。見つからない学籍番号があれば止める。"""
+    cards = {c.student_id: c for c in all_cards(source)}
+    missing = [i for i in ids if i not in cards]
+    if missing:
+        raise ReportCardError(f"成績表に無い学籍番号 {missing}")
+    for i in ids:
+        print(cards[i].dept, i, cards[i].name_ja)
+    return to_pdf(render_html([cards[i] for i in ids], issued, kind="成績証明書"),
+                  PDF.with_name(f"成績証明書_2026前期_{'_'.join(ids)}.pdf"))
+
+
 def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
     """合否がまばらな（E の科目数が受講科目の半分に近い）n 人を、学科が偏らないよう交互に選び、見本を作る。"""
     def spread(c):
@@ -106,9 +119,17 @@ def samples(source: Path, issued: dt.date, n: int = 3) -> list[Path]:
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a != "--sample"]
+    argv = sys.argv[1:]
+    ids = []
+    if "--certificate" in argv:
+        k = argv.index("--certificate")
+        ids = argv[k + 1].split(",")
+        del argv[k:k + 2]
+    args = [a for a in argv if a != "--sample"]
     src = Path(args[0]) if args else OUTPUT
-    if "--sample" in sys.argv:
+    if ids:
+        print(certificates(src, dt.date.today(), ids))
+    elif "--sample" in sys.argv:
         print(*samples(src, dt.date.today()), sep="\n")
     else:
         print(build(src, dt.date.today()))
