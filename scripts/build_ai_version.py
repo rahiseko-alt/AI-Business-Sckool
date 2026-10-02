@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from grading.export.basis import BasisRow, add_teacher_basis  # noqa: E402
-from grading.export.e_list import add_e_list, grade_rows  # noqa: E402
+from grading.export.e_list import add_e_list, add_personal_grades, gpa_of, grade_rows  # noqa: E402
 from grading.export.fill import FilledValue, build_ai_workbook  # noqa: E402
 from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
 from grading.rules.attendance_points import attendance_points  # noqa: E402
@@ -100,7 +100,7 @@ def build(register_name: str, original_name: str, dept: str) -> Path:
 
 
 def add_e_sheet(path: Path) -> int:
-    """LibreOffice で再計算した値から評定Eの一覧を作り、同じファイルに「E一覧」シートとして足す。"""
+    """LibreOffice で再計算した値から「E一覧」「個人別評定」シートを作り、同じファイルに足す。"""
     if not shutil.which("soffice"):
         raise RuntimeError("LibreOffice（soffice）が無いため、E一覧を作れない")
     with tempfile.TemporaryDirectory() as tmp:
@@ -109,9 +109,11 @@ def add_e_sheet(path: Path) -> int:
         subprocess.run(["soffice", f"-env:UserInstallation=file://{tmp}/profile", "--headless", "--convert-to",
                         "xlsx:Calc MS Excel 2007 XML", "--outdir", f"{tmp}/out", str(src)],
                        check=True, capture_output=True, timeout=300)
-        rows = grade_rows(load_workbook(Path(tmp) / "out" / "in.xlsx", data_only=True)["AI計算版"])
+        values = load_workbook(Path(tmp) / "out" / "in.xlsx", data_only=True)["AI計算版"]
+        rows, gpa = grade_rows(values), gpa_of(values)
     wb = load_workbook(path)
     add_e_list(wb, rows)
+    add_personal_grades(wb, rows, gpa)   # GPA評定は基準が未定のため空欄
     wb.save(path)
     return sum(1 for r in rows if r.grade == "E")
 

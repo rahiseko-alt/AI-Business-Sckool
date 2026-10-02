@@ -31,3 +31,19 @@ def test_e_list_sheet_is_grouped_by_subject(tmp_path):
     assert [c.value for c in ws[1]] == ["科目", "学籍番号", "氏名", "合計", "評定"]
     assert list(ws.iter_rows(min_row=2, values_only=True)) == [
         ("マーケティング", "AIBC26001", "TARO", 9, "E"), ("総合ビジネス概論", "AIBC26002", "HANA", 0, "E")]
+
+
+def test_personal_grade_table_has_one_row_per_student(tmp_path):
+    from grading.export.e_list import add_personal_grades
+    ws = _sheet()
+    ws["L3"], ws["L6"], ws["L7"] = "GPA", 1.0, 3.5
+    wb = Workbook()
+    add_personal_grades(wb, grade_rows(ws), gpa_of(ws))
+    wb.save(tmp_path / "p.xlsx")
+    out = load_workbook(tmp_path / "p.xlsx")["個人別評定"]
+    assert [c.value for c in out[1]] == ["学籍番号", "氏名", "マーケティング", "総合ビジネス概論", "GPA", "GPA評定"]
+    assert [c.value for c in out[2]] == ["AIBC26001", "TARO", "E", "—", 1.0, None]
+    assert [c.value for c in out[3]] == ["AIBC26002", "HANA", "A", "E", 3.5, None]
+
+
+from grading.export.e_list import gpa_of  # noqa: E402
