@@ -23,14 +23,23 @@ def test_e_rows_skip_subjects_the_student_does_not_take():
     assert es == [("マーケティング", "AIBC26001"), ("総合ビジネス概論", "AIBC26002")]
 
 
-def test_e_list_sheet_is_grouped_by_subject(tmp_path):
+def test_e_list_is_a_student_by_subject_table_for_scheduling(tmp_path):
+    ws = _sheet()
+    ws["D6"], ws["D7"] = "タロウ\u3000ヤマ\nダ", "ハナ"
     wb = Workbook()
-    add_e_list(wb, grade_rows(_sheet()))
+    add_e_list(wb, grade_rows(ws), {"マーケティング": ("百井", "月"), "総合ビジネス概論": ("元島", "金")})
     wb.save(tmp_path / "e.xlsx")
-    ws = load_workbook(tmp_path / "e.xlsx")["E一覧"]
-    assert [c.value for c in ws[1]] == ["科目", "学籍番号", "氏名", "合計", "評定"]
-    assert list(ws.iter_rows(min_row=2, values_only=True)) == [
-        ("マーケティング", "AIBC26001", "TARO", 9, "E"), ("総合ビジネス概論", "AIBC26002", "HANA", 0, "E")]
+    out = load_workbook(tmp_path / "e.xlsx")
+    m = out["E一覧"]
+    assert [c.value for c in m[1]][4:] == ["マーケティング", "総合ビジネス概論"]
+    assert [c.value for c in m[2]][4:] == ["百井", "元島"] and [c.value for c in m[3]][4:] == ["月", "金"]
+    assert [c.value for c in m[4]][3:] == [2, 1, 1]
+    assert [c.value for c in m[6]] == ["AIBC26001", "TARO", "タロウ ヤマ ダ", 1, 9, None]
+    assert [c.value for c in m[7]] == ["AIBC26002", "HANA", "ハナ", 1, None, 0]
+    s = out["E一覧_科目別"]
+    assert list(s.iter_rows(min_row=2, values_only=True)) == [
+        ("マーケティング", "百井", "月", "AIBC26001", "TARO", "タロウ ヤマ ダ", 9, 1),
+        ("総合ビジネス概論", "元島", "金", "AIBC26002", "HANA", "ハナ", 0, 1)]
 
 
 def test_personal_grade_table_has_one_row_per_student(tmp_path):
@@ -41,9 +50,9 @@ def test_personal_grade_table_has_one_row_per_student(tmp_path):
     add_personal_grades(wb, grade_rows(ws), gpa_of(ws))
     wb.save(tmp_path / "p.xlsx")
     out = load_workbook(tmp_path / "p.xlsx")["個人別評定"]
-    assert [c.value for c in out[1]] == ["学籍番号", "氏名", "マーケティング", "総合ビジネス概論", "GPA", "GPA評定"]
-    assert [c.value for c in out[2]] == ["AIBC26001", "TARO", "E", "—", 1.0, None]
-    assert [c.value for c in out[3]] == ["AIBC26002", "HANA", "A", "E", 3.5, None]
+    assert [c.value for c in out[1]] == ["学籍番号", "氏名", "カタカナ", "マーケティング", "総合ビジネス概論", "GPA", "GPA評定"]
+    assert [c.value for c in out[2]] == ["AIBC26001", "TARO", None, "E", "—", 1.0, None]
+    assert [c.value for c in out[3]] == ["AIBC26002", "HANA", None, "A", "E", 3.5, None]
 
 
 from grading.export.e_list import gpa_of  # noqa: E402

@@ -46,6 +46,17 @@ WEEKLY = "日本語運用力強化演習"
 MOMOI = ["マーケティング", "AI演習", "ビジネス情報リテラシー"]
 
 
+SCHEDULE = {  # 評価表①②③の授業曜日と担当。学科で違う科目は学科名で分ける
+    "ビジネス日本語": ("樋口", "月"), "マーケティング": ("百井", "月"),
+    "ビジネスプレゼンテーション": ("元島", "火"), "AI演習（実践）": ("百井", "火"),
+    "就職指導キャリアガイダンス": ("元島", "水"), "ビジネス演習（理論）": ("浅田", "水"),
+    "ビジネス演習（実践）": ("元島", "木"), "日本語能力強化演習": ("樋口", "木"),
+    "ビジネス情報リテラシー": ("百井", "金"), "国際理解": ("元島", "金"), "総合ビジネス概論": ("元島", "金"),
+}
+SCHEDULE_BY_DEPT = {
+    "国際ビジネス科": {"キャリア形成演習": ("元島", "水"), "日本語運用力強化演習": ("樋口", "月・火")},
+    "総合ビジネス科": {"キャリア形成演習": ("百井", "月"), "日本語運用力強化演習": ("樋口", "火・水")},
+}
 TEACHER = {"ビジネス日本語": "樋口", "日本語運用力強化演習": "樋口", "日本語能力強化演習": "樋口",
            "マーケティング": "百井", "AI演習": "百井", "ビジネス情報リテラシー": "百井", "ビジネス演習(理論)": "浅田"}
 
@@ -99,7 +110,7 @@ def build(register_name: str, original_name: str, dept: str) -> Path:
                              values, TEACHER, evidence=False, extra=basis)
 
 
-def add_e_sheet(path: Path) -> int:
+def add_e_sheet(path: Path, dept: str) -> int:
     """LibreOffice で再計算した値から「E一覧」「個人別評定」シートを作り、同じファイルに足す。"""
     if not shutil.which("soffice"):
         raise RuntimeError("LibreOffice（soffice）が無いため、E一覧を作れない")
@@ -112,7 +123,7 @@ def add_e_sheet(path: Path) -> int:
         values = load_workbook(Path(tmp) / "out" / "in.xlsx", data_only=True)["AI計算版"]
         rows, gpa = grade_rows(values), gpa_of(values)
     wb = load_workbook(path)
-    add_e_list(wb, rows)
+    add_e_list(wb, rows, {**SCHEDULE, **SCHEDULE_BY_DEPT[dept]})
     add_personal_grades(wb, rows, gpa)   # GPA評定は基準が未定のため空欄
     wb.save(path)
     return sum(1 for r in rows if r.grade == "E")
@@ -121,4 +132,4 @@ def add_e_sheet(path: Path) -> int:
 if __name__ == "__main__":
     for args in DEPTS:
         out = build(*args)
-        print(out, "E:", add_e_sheet(out))
+        print(out, "E:", add_e_sheet(out, args[2]))
