@@ -2,8 +2,10 @@
 
     python3 scripts/build_ai_version.py
 
-出力は1学科1ファイル。シートは「AI計算版」「原本」「計算根拠_先生名」。
+出力は両学科で1ファイル（data/output/成績表_2026前期_AI計算版.xlsx）。シート:
+  AI計算版_国際／AI計算版_総合／原本_国際／原本_総合／E一覧_国際／E一覧_総合／E一覧_統合／個人別評定_国際／個人別評定_総合
 AI計算版は原本を丸ごと写し、次のセルだけをAIの計算値に置き換える（色付き）。それ以外は原本のまま（合計等の式も残る）。
+E一覧と個人別評定は、AI計算版を LibreOffice で再計算した値から作る。
 入力は data/input/（Git 対象外）。ここに書いた決まりは、すべて利用者の回答（data/input/decisions.json）による。
 - 出席点（7科目）: 出席簿だけから計算。出席率＝1−（欠＋遅÷3）÷授業数（出席簿にある式）。4%ごとに減点、60%未満は0点
   - 日本語運用力強化演習は1週＝1回（その週に1回でも出席なら出席）
@@ -21,14 +23,14 @@ import tempfile
 from fractions import Fraction
 from pathlib import Path
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from grading.export.basis import BasisRow, add_teacher_basis  # noqa: E402
-from grading.export.e_list import add_e_list, add_personal_grades, gpa_of, grade_rows  # noqa: E402
-from grading.export.fill import FilledValue, build_ai_workbook  # noqa: E402
+from grading.export.copy_sheet import copy_sheet  # noqa: E402
+from grading.export.e_list import add_e_matrix, add_personal_grades, gpa_of, grade_rows  # noqa: E402
+from grading.export.fill import FilledValue, apply_ai_values  # noqa: E402
 from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
 from grading.rules.attendance_points import attendance_points  # noqa: E402
 
@@ -57,79 +59,79 @@ SCHEDULE_BY_DEPT = {
     "国際ビジネス科": {"キャリア形成演習": ("元島", "水"), "日本語運用力強化演習": ("樋口", "月・火")},
     "総合ビジネス科": {"キャリア形成演習": ("百井", "月"), "日本語運用力強化演習": ("樋口", "火・水")},
 }
-TEACHER = {"ビジネス日本語": "樋口", "日本語運用力強化演習": "樋口", "日本語能力強化演習": "樋口",
-           "マーケティング": "百井", "AI演習": "百井", "ビジネス情報リテラシー": "百井", "ビジネス演習(理論)": "浅田"}
+DEPT_SHORT = {"国際ビジネス科": "国際", "総合ビジネス科": "総合"}
+OUTPUT = DATA / "output" / "成績表_2026前期_AI計算版.xlsx"
 
 
-def build(register_name: str, original_name: str, dept: str) -> Path:
+def ai_values(register_name: str, original_ws) -> list[FilledValue]:
     reg = read_register(DATA / "input" / register_name, date_corrections=DATE_CORRECTIONS)
     counts = subject_counts(reg)
     counts.update(weekly_counts(reg, WEEKLY))
-    original = load_workbook(DATA / "input" / original_name).worksheets[0]
-    students = [str(original.cell(r, 2).value).strip() for r in range(6, original.max_row + 1) if original.cell(r, 2).value]
+    students = [str(original_ws.cell(r, 2).value).strip() for r in range(6, original_ws.max_row + 1)
+                if original_ws.cell(r, 2).value]
     values = []
     for subject, (maximum, step) in ATTENDANCE.items():
         unit = "週" if subject == WEEKLY else "回"
         for sid in students:
             n = counts[(sid, subject)]
             points, how = attendance_points(n.rate, maximum, step)
-            values.append(FilledValue(
-                sid, subject, "出席", points,
-                f"授業{n.sessions}{unit}・欠席{n.absent}・遅刻{n.late}（遅刻3回で欠席1回）→ {how}",
-                n.absent_cells + n.late_cells or ("欠席・遅刻なし",)))
+            values.append(FilledValue(sid, subject, "出席", points,
+                                      f"授業{n.sessions}{unit}・欠席{n.absent}・遅刻{n.late} → {how}",
+                                      n.absent_cells + n.late_cells))
     for subject in MOMOI:
         for sid in students:
             n = counts[(sid, subject)]
-            v = Fraction(10 - 2 * n.late)
-            values.append(FilledValue(sid, subject, "授業態度", v,
-                                      f"10 − 2 × 遅刻{n.late}回 − 2 × テキスト忘れ等0回 = {v}",
-                                      n.late_cells or ("出席簿に遅刻なし",)))
+            values.append(FilledValue(sid, subject, "授業態度", Fraction(10 - 2 * n.late),
+                                      f"10 − 2 × 遅刻{n.late}回", n.late_cells))
     for sid in students:
         values.append(FilledValue(sid, "ビジネス演習(理論)", "授業態度", Fraction(10),
-                                  "10 − 1 × 私語・居眠り・スマホ0回 = 10（授業報告に名前つきの記録なし。遅刻は引かない）",
-                                  ("授業報告 全期間",)))
-    old = DATA / "output" / f"成績表_{dept}_AI計算版_入力済.xlsx"
-    if old.exists():
-        old.unlink()
-    names = {str(original.cell(r, 2).value).strip(): original.cell(r, 3).value
-             for r in range(6, original.max_row + 1) if original.cell(r, 2).value}
-    by = {(v.student_id, v.subject, v.item): v.value for v in values}
-
-    def basis(wb):
-        for teacher in dict.fromkeys(TEACHER.values()):
-            subjects = [s for s, t in TEACHER.items() if t == teacher]
-            rows = []
-            for sid in students:
-                for subject in subjects:
-                    n = counts[(sid, subject)]
-                    rows.append(BasisRow(sid, names[sid], subject, n.sessions, n.absent, n.late, n.rate,
-                                         by[(sid, subject, "出席")], by.get((sid, subject, "授業態度"))))
-            add_teacher_basis(wb, teacher, subjects, rows)
-
-    return build_ai_workbook(DATA / "input" / original_name, DATA / "output" / f"成績表_{dept}_AI計算版.xlsx",
-                             values, TEACHER, evidence=False, extra=basis)
+                                  "10 − 1 × 私語・居眠り・スマホ0回（遅刻は引かない）", ()))
+    return values
 
 
-def add_e_sheet(path: Path, dept: str) -> int:
-    """LibreOffice で再計算した値から「E一覧」「個人別評定」シートを作り、同じファイルに足す。"""
+def recalculated(path: Path):
+    """LibreOffice で再計算した値のブックを返す。"""
     if not shutil.which("soffice"):
-        raise RuntimeError("LibreOffice（soffice）が無いため、E一覧を作れない")
-    with tempfile.TemporaryDirectory() as tmp:
-        src = Path(tmp) / "in.xlsx"
-        shutil.copy(path, src)
-        subprocess.run(["soffice", f"-env:UserInstallation=file://{tmp}/profile", "--headless", "--convert-to",
-                        "xlsx:Calc MS Excel 2007 XML", "--outdir", f"{tmp}/out", str(src)],
-                       check=True, capture_output=True, timeout=300)
-        values = load_workbook(Path(tmp) / "out" / "in.xlsx", data_only=True)["AI計算版"]
-        rows, gpa = grade_rows(values), gpa_of(values)
-    wb = load_workbook(path)
-    add_e_list(wb, rows, {**SCHEDULE, **SCHEDULE_BY_DEPT[dept]})
-    add_personal_grades(wb, rows, gpa)   # GPA評定は基準が未定のため空欄
-    wb.save(path)
-    return sum(1 for r in rows if r.grade == "E")
+        raise RuntimeError("LibreOffice（soffice）が無いため、E一覧と個人別評定を作れない")
+    tmp = tempfile.mkdtemp()
+    src = Path(tmp) / "in.xlsx"
+    shutil.copy(path, src)
+    subprocess.run(["soffice", f"-env:UserInstallation=file://{tmp}/profile", "--headless", "--convert-to",
+                    "xlsx:Calc MS Excel 2007 XML", "--outdir", f"{tmp}/out", str(src)],
+                   check=True, capture_output=True, timeout=300)
+    return load_workbook(Path(tmp) / "out" / "in.xlsx", data_only=True)
+
+
+def build_all() -> Path:
+    wb = Workbook()
+    wb.remove(wb.active)
+    for register_name, original_name, dept in DEPTS:
+        short = DEPT_SHORT[dept]
+        original = load_workbook(DATA / "input" / original_name).worksheets[0]
+        ai = copy_sheet(original, wb, f"AI計算版_{short}")
+        if isinstance(ai["A1"].value, str):
+            ai["A1"].value += "（AI計算版）"
+        apply_ai_values(ai, ai_values(register_name, original))
+    for register_name, original_name, dept in DEPTS:
+        copy_sheet(load_workbook(DATA / "input" / original_name).worksheets[0], wb, f"原本_{DEPT_SHORT[dept]}")
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(OUTPUT)
+
+    values = recalculated(OUTPUT)
+    groups = []
+    for _, _, dept in DEPTS:
+        sheet = values[f"AI計算版_{DEPT_SHORT[dept]}"]
+        groups.append((dept, grade_rows(sheet), {**SCHEDULE, **SCHEDULE_BY_DEPT[dept]}, gpa_of(sheet)))
+    for dept, rows, info, _ in groups:
+        add_e_matrix(wb, [(dept, rows, info)], f"E一覧_{DEPT_SHORT[dept]}")
+    add_e_matrix(wb, [(d, r, i) for d, r, i, _ in groups], "E一覧_統合")
+    for dept, rows, _, gpa in groups:
+        add_personal_grades(wb, rows, gpa, title=f"個人別評定_{DEPT_SHORT[dept]}")   # GPA評定は基準が未定のため空欄
+    wb.save(OUTPUT)
+    for old in DATA.joinpath("output").glob("成績表_*ビジネス科_AI計算版*.xlsx"):
+        old.unlink()
+    return OUTPUT
 
 
 if __name__ == "__main__":
-    for args in DEPTS:
-        out = build(*args)
-        print(out, "E:", add_e_sheet(out, args[2]))
+    print(build_all())

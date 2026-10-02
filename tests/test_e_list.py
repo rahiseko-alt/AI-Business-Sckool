@@ -1,6 +1,6 @@
 from openpyxl import Workbook, load_workbook
 
-from grading.export.e_list import add_e_list, grade_rows
+from grading.export.e_list import add_e_matrix, grade_rows
 
 
 def _sheet():
@@ -23,23 +23,32 @@ def test_e_rows_skip_subjects_the_student_does_not_take():
     assert es == [("マーケティング", "AIBC26001"), ("総合ビジネス概論", "AIBC26002")]
 
 
-def test_e_list_is_a_student_by_subject_table_for_scheduling(tmp_path):
+def test_e_list_per_department_is_a_student_by_subject_table(tmp_path):
     ws = _sheet()
     ws["D6"], ws["D7"] = "タロウ\u3000ヤマ\nダ", "ハナ"
     wb = Workbook()
-    add_e_list(wb, grade_rows(ws), {"マーケティング": ("百井", "月"), "総合ビジネス概論": ("元島", "金")})
+    info = {"マーケティング": ("百井", "月"), "総合ビジネス概論": ("元島", "金")}
+    add_e_matrix(wb, [("国際ビジネス科", grade_rows(ws), info)], "E一覧_国際")
     wb.save(tmp_path / "e.xlsx")
-    out = load_workbook(tmp_path / "e.xlsx")
-    m = out["E一覧"]
+    m = load_workbook(tmp_path / "e.xlsx")["E一覧_国際"]
     assert [c.value for c in m[1]][4:] == ["マーケティング", "総合ビジネス概論"]
     assert [c.value for c in m[2]][4:] == ["百井", "元島"] and [c.value for c in m[3]][4:] == ["月", "金"]
     assert [c.value for c in m[4]][3:] == [2, 1, 1]
     assert [c.value for c in m[6]] == ["AIBC26001", "TARO", "タロウ ヤマ ダ", 1, 9, None]
     assert [c.value for c in m[7]] == ["AIBC26002", "HANA", "ハナ", 1, None, 0]
-    s = out["E一覧_科目別"]
-    assert list(s.iter_rows(min_row=2, values_only=True)) == [
-        ("マーケティング", "百井", "月", "AIBC26001", "TARO", "タロウ ヤマ ダ", 9, 1),
-        ("総合ビジネス概論", "元島", "金", "AIBC26002", "HANA", "ハナ", 0, 1)]
+
+
+def test_combined_e_list_adds_the_department_and_marks_differing_teachers(tmp_path):
+    a, b = _sheet(), _sheet()
+    b["B6"], b["B7"] = "AIBC26003", "AIBC26004"
+    wb = Workbook()
+    add_e_matrix(wb, [("国際ビジネス科", grade_rows(a), {"マーケティング": ("百井", "月")}),
+                      ("総合ビジネス科", grade_rows(b), {"マーケティング": ("小齊平", "月")})], "E一覧_統合")
+    wb.save(tmp_path / "e.xlsx")
+    m = load_workbook(tmp_path / "e.xlsx")["E一覧_統合"]
+    assert m["A5"].value == "学科" and m["F2"].value == "百井（国際）／小齊平（総合）" and m["F3"].value == "月"
+    assert [m.cell(r, 1).value for r in range(6, 10)] == ["国際ビジネス科", "国際ビジネス科", "総合ビジネス科", "総合ビジネス科"]
+    assert m["E4"].value == 4
 
 
 def test_personal_grade_table_has_one_row_per_student(tmp_path):

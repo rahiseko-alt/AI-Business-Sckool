@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 
 @dataclass(frozen=True)
@@ -64,50 +65,52 @@ def _bold(row):
         cell.font, cell.fill = Font(bold=True), _HEAD
 
 
-def add_e_list(wb, rows: Sequence[GradeRow], subject_info: dict[str, tuple[str, str]] | None = None):
-    """追試の予定を立てやすい形のE一覧を2枚作る。subject_info: 科目 → (担当, 曜日)。
+def _es(rows):
+    return [r for r in rows if r.grade == "E"]
 
-    「E一覧」: Eのある学生×科目の表。セルにはその科目の合計点。担当と曜日を見出しに置き、E科目数の多い順。
-    「E一覧_科目別」: 科目ごとにEの学生を並べる（担当・曜日つき）。
+
+def add_e_matrix(wb, groups: Sequence[tuple[str, Sequence[GradeRow], dict[str, tuple[str, str]]]],
+                 title: str = "E一覧"):
+    """落ちこぼれ（評定E）の一覧。追試の予定向けに、Eのある学生×科目の表（セルはその科目の合計点）。
+
+    groups: (学科, 評定の行, 科目→(担当, 曜日)) の並び。2学科以上なら「学科」の列を付け、
+    学科で担当・曜日が違う科目は見出しに学科名を添える。見出しに担当・曜日・Eの人数。E科目数の多い順。
     """
-    info = subject_info or {}
-    es = [r for r in rows if r.grade == "E"]
-    subjects = [s for s in dict.fromkeys(r.subject for r in rows) if any(e.subject == s for e in es)]
-    per_student: dict[str, list[GradeRow]] = {}
-    for e in es:
-        per_student.setdefault(e.student_id, []).append(e)
-    order = sorted(per_student, key=lambda sid: (-len(per_student[sid]), sid))
+    many = len(groups) > 1
+    es = [(dept, e) for dept, rows, _ in groups for e in rows if e.grade == "E"]
+    subjects = list(dict.fromkeys(e.subject for _, rows, _ in groups for e in rows if any(x.subject == e.subject for _, x in es)))
 
-    ws = wb.create_sheet("E一覧")
-    fixed = ["学籍番号", "氏名", "カタカナ", "E科目数"]
-    ws.append(["科目", "", "", "", *subjects])
-    ws.append(["担当", "", "", "", *[info.get(s, ("", ""))[0] for s in subjects]])
-    ws.append(["曜日", "", "", "", *[info.get(s, ("", ""))[1] for s in subjects]])
-    ws.append(["Eの人数", "", "", len(es), *[sum(1 for e in es if e.subject == s) for s in subjects]])
-    ws.append([*fixed, *["合計点" for _ in subjects]])
+    def header(s, k):
+        vals = {dept: info.get(s, ("", ""))[k] for dept, rows, info in groups if any(r.subject == s for r in rows)}
+        if len(set(vals.values())) <= 1:
+            return next(iter(vals.values()), "")
+        return "／".join(f"{v}（{d[:2]}）" for d, v in vals.items())
+
+    per: dict[tuple[str, str], list[GradeRow]] = {}
+    for dept, e in es:
+        per.setdefault((dept, e.student_id), []).append(e)
+    order = sorted(per, key=lambda k: (-len(per[k]), k[0], k[1]))
+    lead = ["学科"] if many else []
+    pad = [""] * len(lead)
+    ws = wb.create_sheet(title)
+    ws.append([*pad, "科目", "", "", "", *subjects])
+    ws.append([*pad, "担当", "", "", "", *[header(s, 0) for s in subjects]])
+    ws.append([*pad, "曜日", "", "", "", *[header(s, 1) for s in subjects]])
+    ws.append([*pad, "Eの人数", "", "", len(es), *[sum(1 for _, e in es if e.subject == s) for s in subjects]])
+    ws.append([*lead, "学籍番号", "氏名", "カタカナ", "E科目数", *["合計点" for _ in subjects]])
     for r in range(1, 6):
         _bold(ws[r])
-    for sid in order:
-        first = per_student[sid][0]
-        by = {e.subject: e.total for e in per_student[sid]}
-        ws.append([sid, first.name, first.kana, len(per_student[sid]), *[by.get(s) for s in subjects]])
+    first_subject_col = len(lead) + 5
+    for key in order:
+        items = per[key]
+        by = {e.subject: e.total for e in items}
+        ws.append([*([key[0]] if many else []), key[1], items[0].name, items[0].kana, len(items), *[by.get(s) for s in subjects]])
         for k, s in enumerate(subjects):
             if s in by:
-                ws.cell(ws.max_row, 5 + k).fill = _E
-    for col, width in zip("ABCD", (12, 30, 24, 8)):
-        ws.column_dimensions[col].width = width
-    ws.freeze_panes = "E6"
-
-    by_subject = wb.create_sheet("E一覧_科目別")
-    by_subject.append(["科目", "担当", "曜日", "学籍番号", "氏名", "カタカナ", "合計点", "この学生のE科目数"])
-    _bold(by_subject[1])
-    for s in subjects:
-        teacher, day = info.get(s, ("", ""))
-        for e in sorted((e for e in es if e.subject == s), key=lambda e: e.student_id):
-            by_subject.append([s, teacher, day, e.student_id, e.name, e.kana, e.total, len(per_student[e.student_id])])
-    for col, width in zip("ABCDEFGH", (28, 8, 10, 12, 30, 24, 8, 10)):
-        by_subject.column_dimensions[col].width = width
-    by_subject.freeze_panes = "A2"
+                ws.cell(ws.max_row, first_subject_col + k).fill = _E
+    for i, width in enumerate([*([14] if many else []), 12, 30, 24, 8]):
+        ws.column_dimensions[get_column_letter(1 + i)].width = width
+    ws.freeze_panes = f"{get_column_letter(first_subject_col)}6"
     return ws
 
 

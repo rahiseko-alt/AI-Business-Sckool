@@ -83,27 +83,12 @@ def fill_template(src: str | Path, dst: str | Path, values: Sequence[FilledValue
 
 
 AI_FILL = PatternFill("solid", fgColor="DDEBF7")
-EVIDENCE_HEADER = ["学籍番号", "科目", "評価項目", "セル", "原本の値", "AIの値", "正確な値", "計算", "元のセル"]
 
 
-def build_ai_workbook(original: str | Path, dst: str | Path, values: Sequence[FilledValue],
-                      teacher_of: dict[str, str], evidence: bool = True, extra=None) -> Path:
-    """原本を丸ごと写し、AIが計算したセルだけを置き換えた「AI計算版」を作る。
-
-    シート: AI計算版（AIのセルは色付き、ほかは原本のまま。合計などの式も残る）／原本（手を付けない）／
-    計算根拠_先生名（evidence=True のとき、1値1行の詳しい根拠）。extra(wb) で保存前にシートを足せる。
-    """
-    wb = load_workbook(original)
-    cached = load_workbook(original, data_only=True).worksheets[0]
-    ai = wb.worksheets[0]
-    keep = wb.copy_worksheet(ai)
-    keep.title = "原本"
-    ai.title = "AI計算版"
-    if isinstance(ai["A1"].value, str):
-        ai["A1"].value += "（AI計算版）"
+def apply_ai_values(ai, values: Sequence[FilledValue]) -> int:
+    """成績表のシート ai のうち、values のセルだけを計算値に置き換えて色を付ける。ほかのセルは触らない。"""
     columns = _columns(ai)
     rows = {str(ai.cell(r, 2).value).strip(): r for r in range(6, ai.max_row + 1) if ai.cell(r, 2).value}
-    sheets: dict[str, object] = {}
     written = set()
     for v in values:
         key = (_subject(v.subject), unify_subject(v.item))
@@ -111,33 +96,10 @@ def build_ai_workbook(original: str | Path, dst: str | Path, values: Sequence[Fi
             raise KeyError(f"成績表に「{v.subject}」の「{v.item}」の列が無い")
         if v.student_id not in rows:
             raise KeyError(f"成績表に学籍番号 {v.student_id} が無い")
-        teacher = teacher_of[_subject(v.subject)]
         r, c = rows[v.student_id], columns[key]
         if (r, c) in written:
             raise ValueError(f"{v.student_id} {v.subject} {v.item} に2回書こうとした")
         written.add((r, c))
-        before = cached.cell(r, c).value
-        if before is None:
-            before = ai.cell(r, c).value
-        number = int(v.value) if v.value.denominator == 1 else float(v.value)
-        ai.cell(r, c).value = number
+        ai.cell(r, c).value = int(v.value) if v.value.denominator == 1 else float(v.value)
         ai.cell(r, c).fill = AI_FILL
-        if not evidence:
-            continue
-        if teacher not in sheets:
-            ev = wb.create_sheet(f"計算根拠_{teacher}")
-            ev.append(EVIDENCE_HEADER)
-            for cell in ev[1]:
-                cell.font = Font(bold=True)
-            for col, width in zip("ABCDEFGHI", (12, 22, 10, 7, 10, 8, 10, 60, 60)):
-                ev.column_dimensions[col].width = width
-            ev.freeze_panes = "A2"
-            sheets[teacher] = ev
-        sheets[teacher].append([v.student_id, v.subject, v.item, f"{get_column_letter(c)}{r}", before, number,
-                                format_number(v.value).split("（")[0], v.explanation, "、".join(v.evidence)])
-    if extra is not None:
-        extra(wb)
-    dst = Path(dst)
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(dst)
-    return dst
+    return len(written)

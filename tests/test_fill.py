@@ -72,27 +72,18 @@ def _original(path):
     return path
 
 
-def test_ai_workbook_overrides_only_ai_cells_and_keeps_the_original(tmp_path):
-    from grading.export.fill import build_ai_workbook
-    values = [_v("AIBC26001", "マーケティング", "出席", 9), _v("AIBC26001", "マーケティング", "授業態度", 10),
-              _v("AIBC26001", "ビジネス日本語", "出席", 10)]
-    teachers = {"マーケティング": "百井", "ビジネス日本語": "樋口"}
-    out = build_ai_workbook(_original(tmp_path / "o.xlsx"), tmp_path / "ai.xlsx", values, teachers)
-    wb = load_workbook(out)
-    assert wb.sheetnames == ["AI計算版", "原本", "計算根拠_百井", "計算根拠_樋口"]
-    ai, orig = wb["AI計算版"], wb["原本"]
-    assert (ai["E6"].value, ai["F6"].value, ai["I6"].value) == (9, 10, 10)
-    assert (ai["G6"].value, ai["H6"].value, ai["J6"].value) == (56, "=SUM(E6:G6)", 18)   # AI以外は原本のまま
-    assert (orig["E6"].value, orig["F6"].value, orig["I6"].value) == ("=10-((1-0.9)/0.04)", 8, 7)
-    assert ai["A1"].value.endswith("（AI計算版）") and orig["A1"].value == "2026年度　国際ビジネス科"
-    assert ai["E6"].fill.fgColor.rgb.endswith("DDEBF7") and not orig["E6"].fill.fgColor.rgb.endswith("DDEBF7")
-    rows = list(wb["計算根拠_百井"].iter_rows(min_row=2, values_only=True))
-    assert [(r[1], r[2], r[3], r[4], r[5]) for r in rows] == [("マーケティング", "出席", "E6", "=10-((1-0.9)/0.04)", 9),
-                                                             ("マーケティング", "授業態度", "F6", 8, 10)]
+def test_only_ai_cells_are_replaced_and_coloured(tmp_path):
+    from grading.export.fill import apply_ai_values
+    ws = load_workbook(_original(tmp_path / "o.xlsx")).worksheets[0]
+    n = apply_ai_values(ws, [_v("AIBC26001", "マーケティング", "出席", 9), _v("AIBC26001", "ビジネス日本語", "出席", 10)])
+    assert n == 2
+    assert (ws["E6"].value, ws["I6"].value) == (9, 10)
+    assert (ws["F6"].value, ws["G6"].value, ws["H6"].value, ws["J6"].value) == (8, 56, "=SUM(E6:G6)", 18)
+    assert ws["E6"].fill.fgColor.rgb.endswith("DDEBF7") and not ws["F6"].fill.fgColor.rgb.endswith("DDEBF7")
 
 
-def test_ai_workbook_refuses_a_subject_without_a_teacher(tmp_path):
-    from grading.export.fill import build_ai_workbook
+def test_unknown_item_stops(tmp_path):
+    from grading.export.fill import apply_ai_values
+    ws = load_workbook(_original(tmp_path / "o.xlsx")).worksheets[0]
     with pytest.raises(KeyError):
-        build_ai_workbook(_original(tmp_path / "o.xlsx"), tmp_path / "ai.xlsx",
-                          [_v("AIBC26001", "マーケティング", "出席", 9)], {})
+        apply_ai_values(ws, [_v("AIBC26001", "マーケティング", "発表", 9)])
