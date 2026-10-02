@@ -228,3 +228,37 @@ def calendar_anomalies(reg: Register, first: dt.date, last: dt.date) -> list[Cal
                 out.append(CalendarAnomaly(d, "平日なのに全員×", f"{label}: {len(idx)}コマ（{'、'.join(subjects)}）"))
         d += dt.timedelta(days=1)
     return out
+
+
+def weekly_counts(reg: Register, subject: str, exclude: set[str] = frozenset()) -> dict[tuple[str, str], SubjectCount]:
+    """週ごとに1回と数える科目（日本語運用力強化演習）の集計。
+
+    その週の×でない授業のうち、1つでも出席なら「出席」、出席が無く遅刻があれば「遅刻」、どちらも無ければ「欠席」。
+    ×しか無い週は数えない。exclude には数えない授業を「シート名!列」で渡す。
+    根拠のセルは、欠席の週はその週の欠のセルすべて、遅刻の週はその週の遅のセルすべて。
+    """
+    weeks: dict[tuple[str, dt.date], list[Mark]] = {}
+    for m in reg.marks:
+        s = reg.sessions[m.session]
+        if s.subject != subject or s.date is None or m.value == "×" or f"{s.sheet}!{s.column}" in exclude:
+            continue
+        monday = s.date - dt.timedelta(days=s.date.weekday())
+        weeks.setdefault((m.student_id, monday), []).append(m)
+    acc: dict[str, list] = {}
+    for (sid, _), marks in sorted(weeks.items()):
+        a = acc.setdefault(sid, [0, [], []])
+        a[0] += 1
+        values = [m.value for m in marks]
+        if None in values:
+            continue
+        if "遅" in values:
+            a[2].extend(m.cell for m in marks if m.value == "遅")
+            continue
+        a[1].extend(m.cell for m in marks if m.value == "欠")
+    out = {}
+    for sid, (n, ab, lt) in acc.items():
+        absent_weeks = sum(1 for (s, _), ms in weeks.items() if s == sid and all(m.value == "欠" for m in ms))
+        late_weeks = sum(1 for (s, _), ms in weeks.items()
+                         if s == sid and None not in [m.value for m in ms] and "遅" in [m.value for m in ms])
+        out[(sid, subject)] = SubjectCount(sid, subject, n, absent_weeks, late_weeks, tuple(ab), tuple(lt))
+    return out

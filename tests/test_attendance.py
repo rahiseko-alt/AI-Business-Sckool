@@ -153,3 +153,41 @@ def test_subject_summary_keeps_layout_counts_and_shows_differences(register, tmp
     diff = [r for r in wb["元の集計との比較"].iter_rows(min_row=2, values_only=True) if r[0] == "AIBC26001"]
     assert diff[0][2:4] == (5, 4) and diff[0][8] == "違う"
     assert ("AIBC26001", "ビジネス日本語", "欠", "国際ビジネスAI科 4月!E6") in list(wb["根拠"].iter_rows(values_only=True))
+
+
+def _weekly_register(tmp_path, marks):
+    wb = Workbook()
+    _month(wb.active, "国際ビジネスAI科 5月", [
+        ("　5月　　11日（月）", [("⽇本語運⽤⼒強化演習", 5)]),
+        ("　5月　　12日（火）", [("⽇本語運⽤⼒強化演習", 5)]),
+        ("　5月　　18日（月）", [("⽇本語運⽤⼒強化演習", 5)]),
+        ("　5月　　19日（火）", [("⽇本語運⽤⼒強化演習", 5)]),
+    ], STUDENTS, marks)
+    wb.save(tmp_path / "w.xlsx")
+    return read_register(tmp_path / "w.xlsx")
+
+
+def test_weekly_subject_counts_a_week_once_if_any_session_was_attended(tmp_path):
+    from grading.importing.attendance import weekly_counts
+    # 学生1: 1週目 月欠・火出 → 出席1回、2週目 月×・火欠 → 欠席1回
+    # 学生2: 1週目 月出・火× → 出席、2週目 月遅・火× → 遅刻
+    reg = _weekly_register(tmp_path, {(6, 5): "欠", (6, 7): "×", (6, 8): "欠", (7, 6): "×", (7, 7): "遅", (7, 8): "×"})
+    c = weekly_counts(reg, "日本語運用力強化演習")
+    one, two = c[("AIBC26001", "日本語運用力強化演習")], c[("AIBC26002", "日本語運用力強化演習")]
+    assert (one.sessions, one.absent, one.late) == (2, 1, 0)
+    assert (two.sessions, two.absent, two.late) == (2, 0, 1)
+    assert one.absent_cells == ("国際ビジネスAI科 5月!H6",)
+
+
+def test_week_with_only_cross_is_not_counted(tmp_path):
+    from grading.importing.attendance import weekly_counts
+    reg = _weekly_register(tmp_path, {(6, 5): "×", (6, 6): "×"})
+    assert weekly_counts(reg, "日本語運用力強化演習")[("AIBC26001", "日本語運用力強化演習")].sessions == 1
+
+
+def test_weekly_counts_can_leave_out_named_sessions(tmp_path):
+    from grading.importing.attendance import weekly_counts
+    reg = _weekly_register(tmp_path, {(6, 5): "欠", (6, 6): "×"})
+    full = weekly_counts(reg, "日本語運用力強化演習")[("AIBC26001", "日本語運用力強化演習")]
+    cut = weekly_counts(reg, "日本語運用力強化演習", exclude={"国際ビジネスAI科 5月!E"})[("AIBC26001", "日本語運用力強化演習")]
+    assert (full.sessions, full.absent) == (2, 1) and (cut.sessions, cut.absent) == (1, 0)
