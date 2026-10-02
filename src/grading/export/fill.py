@@ -87,11 +87,11 @@ EVIDENCE_HEADER = ["学籍番号", "科目", "評価項目", "セル", "原本�
 
 
 def build_ai_workbook(original: str | Path, dst: str | Path, values: Sequence[FilledValue],
-                      teacher_of: dict[str, str]) -> Path:
+                      teacher_of: dict[str, str], evidence: bool = True, extra=None) -> Path:
     """原本を丸ごと写し、AIが計算したセルだけを置き換えた「AI計算版」を作る。
 
     シート: AI計算版（AIのセルは色付き、ほかは原本のまま。合計などの式も残る）／原本（手を付けない）／
-    計算根拠_先生名（先生ごとに、原本の値・AIの値・計算・元のセル）。
+    計算根拠_先生名（evidence=True のとき、1値1行の詳しい根拠）。extra(wb) で保存前にシートを足せる。
     """
     wb = load_workbook(original)
     cached = load_workbook(original, data_only=True).worksheets[0]
@@ -122,6 +122,8 @@ def build_ai_workbook(original: str | Path, dst: str | Path, values: Sequence[Fi
         number = int(v.value) if v.value.denominator == 1 else float(v.value)
         ai.cell(r, c).value = number
         ai.cell(r, c).fill = AI_FILL
+        if not evidence:
+            continue
         if teacher not in sheets:
             ev = wb.create_sheet(f"計算根拠_{teacher}")
             ev.append(EVIDENCE_HEADER)
@@ -133,6 +135,8 @@ def build_ai_workbook(original: str | Path, dst: str | Path, values: Sequence[Fi
             sheets[teacher] = ev
         sheets[teacher].append([v.student_id, v.subject, v.item, f"{get_column_letter(c)}{r}", before, number,
                                 format_number(v.value).split("（")[0], v.explanation, "、".join(v.evidence)])
+    if extra is not None:
+        extra(wb)
     dst = Path(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
     wb.save(dst)

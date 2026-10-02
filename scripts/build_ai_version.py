@@ -23,6 +23,7 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from grading.export.basis import BasisRow, add_teacher_basis  # noqa: E402
 from grading.export.fill import FilledValue, build_ai_workbook  # noqa: E402
 from grading.importing.attendance import read_register, subject_counts, weekly_counts  # noqa: E402
 from grading.rules.attendance_points import attendance_points  # noqa: E402
@@ -75,8 +76,23 @@ def build(register_name: str, original_name: str, dept: str) -> Path:
     old = DATA / "output" / f"成績表_{dept}_AI計算版_入力済.xlsx"
     if old.exists():
         old.unlink()
+    names = {str(original.cell(r, 2).value).strip(): original.cell(r, 3).value
+             for r in range(6, original.max_row + 1) if original.cell(r, 2).value}
+    by = {(v.student_id, v.subject, v.item): v.value for v in values}
+
+    def basis(wb):
+        for teacher in dict.fromkeys(TEACHER.values()):
+            subjects = [s for s, t in TEACHER.items() if t == teacher]
+            rows = []
+            for sid in students:
+                for subject in subjects:
+                    n = counts[(sid, subject)]
+                    rows.append(BasisRow(sid, names[sid], subject, n.sessions, n.absent, n.late, n.rate,
+                                         by[(sid, subject, "出席")], by.get((sid, subject, "授業態度"))))
+            add_teacher_basis(wb, teacher, subjects, rows)
+
     return build_ai_workbook(DATA / "input" / original_name, DATA / "output" / f"成績表_{dept}_AI計算版.xlsx",
-                             values, TEACHER)
+                             values, TEACHER, evidence=False, extra=basis)
 
 
 if __name__ == "__main__":
