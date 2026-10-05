@@ -103,3 +103,13 @@ def test_certificate_has_its_title_and_no_not_a_certificate_notice():
     assert "<h1>成績証明書</h1>" in page and "<h1>通知表</h1>" not in page
     assert "この書類は成績証明書ではありません" not in page
     assert 'class="fail"' not in page and 'class="stamp' not in page
+
+
+def test_withheld_subject_is_black_with_blank_score_grade_and_credit():
+    import dataclasses
+    card = read_cards(_sheet(), "国際ビジネス科", _counts())[1]         # A と B で 4単位取得
+    lines = tuple(dataclasses.replace(l, withheld=True) if l.name == "国際社会・異文化理解Ⅰ" else l for l in card.lines)
+    card = dataclasses.replace(card, lines=lines)
+    assert (card.credits_set, card.credits_earned) == (4, 2)
+    page = render_html([card], dt.date(2026, 10, 2))
+    assert '<tr class="fail"><td class="subject">国際社会・異文化理解Ⅰ</td><td></td><td></td>' in page

@@ -54,10 +54,11 @@ class Line:
     credits: int
     score: float
     grade: str
+    withheld: bool = False   # 利用者の指示による例外処置: 行を黒地にし、点数・評定・取得を空欄にする（単位は数えない）
 
     @property
     def earned(self) -> int | None:
-        return None if self.grade == "E" else self.credits
+        return None if self.grade == "E" or self.withheld else self.credits
 
 
 @dataclass(frozen=True)
@@ -216,6 +217,10 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
     out = [f"<table>{head}", '<tr class="term"><td colspan="6">前期</td></tr>']
     lines = card.lines if card else ()
     for l in lines:
+        if l.withheld:
+            out.append(f'<tr class="fail"><td class="subject">{_e(l.name)}</td><td></td><td></td>'
+                       f'<td class="c">{_e(l.kind)}</td><td class="n">{l.credits}</td><td></td></tr>')
+            continue
         tr = '<tr class="fail">' if black_e and l.grade == "E" else "<tr>"
         out.append(f'{tr}<td class="subject">{_e(l.name)}</td><td class="n">{_one_decimal(l.score)}</td>'
                    f'<td class="c">{_e(l.grade)}</td><td class="c">{_e(l.kind)}</td><td class="n">{l.credits}</td>'
