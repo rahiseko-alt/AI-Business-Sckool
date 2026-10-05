@@ -54,7 +54,8 @@ class Line:
     credits: int
     score: float
     grade: str
-    withheld: bool = False   # 利用者の指示による例外処置: 行を黒地にし、点数・評定・取得を空欄にする（単位は数えない）
+    withheld: bool = False   # 利用者の指示による例外処置: 行を黒地にし、点数・取得を空欄にする（単位は数えない）
+    withheld_grade: str = ""  # 例外処置の行の評定欄に出す文字（利用者の指示。空なら空欄）
 
     @property
     def earned(self) -> int | None:
@@ -218,7 +219,7 @@ def _grades(card: Card | None, year: str, black_e: bool = False) -> str:
     lines = card.lines if card else ()
     for l in lines:
         if l.withheld:
-            out.append(f'<tr class="fail"><td class="subject">{_e(l.name)}</td><td></td><td></td>'
+            out.append(f'<tr class="fail"><td class="subject">{_e(l.name)}</td><td></td><td class="c">{_e(l.withheld_grade)}</td>'
                        f'<td class="c">{_e(l.kind)}</td><td class="n">{l.credits}</td><td></td></tr>')
             continue
         tr = '<tr class="fail">' if black_e and l.grade == "E" else "<tr>"

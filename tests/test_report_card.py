@@ -112,4 +112,8 @@ def test_withheld_subject_is_black_with_blank_score_grade_and_credit():
     card = dataclasses.replace(card, lines=lines)
     assert (card.credits_set, card.credits_earned) == (4, 2)
     page = render_html([card], dt.date(2026, 10, 2))
-    assert '<tr class="fail"><td class="subject">国際社会・異文化理解Ⅰ</td><td></td><td></td>' in page
+    assert '<tr class="fail"><td class="subject">国際社会・異文化理解Ⅰ</td><td></td><td class="c"></td>' in page
+    card = dataclasses.replace(card, lines=tuple(dataclasses.replace(l, withheld_grade="F") if l.withheld else l for l in card.lines))
+    page = render_html([card], dt.date(2026, 10, 2))
+    assert '<td class="subject">国際社会・異文化理解Ⅰ</td><td></td><td class="c">F</td>' in page
+    assert card.credits_earned == 2
