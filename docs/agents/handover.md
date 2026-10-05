@@ -22,7 +22,8 @@
 
 **次にやること**
 
-- `/to-spec` で仕様にまとめる → `/to-tickets` で作業指示書にする → `/implement`
+- 仕様は rahiseko-alt/sirabasu#8 に作成済み（確かめ方は「作ったファイルを再計算して read_cards と全員分照合」で利用者了承）
+- 次は `/to-tickets` で作業指示書に分ける → `/implement`
 - 渡す前に、式の結果をプログラムの計算と全員分照合する（LibreOffice の表計算をこの作業環境に入れたので再計算できる。作業環境が作り直されたら `apt-get install -y libreoffice-calc` が要る）
 
 **未解決の問題**
