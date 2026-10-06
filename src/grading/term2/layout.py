@@ -30,6 +30,11 @@ LAST_ROW = 1000                        # 写しや一覧を数える範囲の下
 SLOTS = 35                             # 提出用の表の学生の行数（学科の人数＋入れ替わりの余り）
 EXCLUDE_ROWS = 50                      # 受講しない学生の黄の行数
 ROSTER_LAST = 203                      # 名簿の写しの下端（名簿200人まで）
+EXCEPTION_SHEET = "例外"                # 成績表: 学籍番号・科目・表示する評定・理由（黄）。通知表でその科目を黒塗りにする
+EXCEPTION_ROWS = 50                    # 例外の黄の行数
+REMARKS_SHEET = "特記事項"              # 成績表: 学籍番号・文（黄）。書いた学生だけ通知表に出る
+REMARKS_ROWS = 100                     # 特記事項の黄の行数
+SUBJECT_LAST = 100                     # 科目シートを読む範囲の下端（科目97行まで）
 
 # 出席・態度・テストそれぞれ（自動・手入力・採用）の列。配点は採用の列の2行目に置く
 PARTS = [("出席", "C", "D", "E"), ("態度", "F", "G", "H"), ("テスト", "I", "J", "K")]
@@ -188,23 +193,31 @@ def _intake_check(r: int) -> str:
 
 
 def _check_sheet(last_sum: int, last_intake: int, height: int) -> tuple[list[list], list[tuple[str, str]]]:
-    """確認シート: 未提出の科目と、集計・出席の受け口の確認内容を一覧にする。赤が0件になったら印刷してよい。"""
+    """確認シート: 未提出の科目と、集計・出席の受け口・例外・特記事項の確認内容を一覧にする。
+    赤が0件になったら印刷してよい。"""
     sm = lambda c: f"{SUMMARY_SHEET}!${c}${FIRST_ROW}:${c}${last_sum}"
     ik = lambda c: f"'{INTAKE_SHEET}'!${c}${FIRST_ROW}:${c}${last_intake}"
     block_head = f"MOD(ROW({sm('A')})-{FIRST_ROW},{height})=0"   # 科目ごとの見出しの行
     ok = _grade_ok()
-    rows = [[CHECK_SHEET] + [None] * 8, ["赤が0件になったら印刷してよい"] + [None] * 8,
+    ex = lambda c: f"{EXCEPTION_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + EXCEPTION_ROWS - 1}"
+    rm = lambda c: f"{REMARKS_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + REMARKS_ROWS - 1}"
+    rows = [[CHECK_SHEET] + [None] * 12, ["赤が0件になったら印刷してよい"] + [None] * 12,
             ["未提出", f"=SUMPRODUCT(({block_head})*({sm('G')}<>TRUE))",
-             "要確認", f'=COUNTIF({sm("I")},"?*")+COUNTIF({ik("L")},"?*")+IF({ok},0,1)',
-             "評定の基準", f'=IF({ok},"","未入力または順番がおかしい")', None, None, None],
-            [None] * 9,
+             "要確認", f'=COUNTIF({sm("I")},"?*")+COUNTIF({ik("L")},"?*")+COUNTIF({ex("E")},"?*")'
+                      f'+COUNTIF({rm("C")},"?*")+IF({ok},0,1)',
+             "評定の基準", f'=IF({ok},"","未入力または順番がおかしい")'] + [None] * 7,
+            [None] * 13,
             ["未提出の科目", None, "学籍番号", "科目", "何がおかしいか（成績）", None,
-             "学籍番号", "科目", "何がおかしいか（出席）"],
+             "学籍番号", "科目", "何がおかしいか（出席）", None, "学籍番号", "科目", "何がおかしいか（例外・特記事項）"],
             [f'=IFERROR(FILTER({sm("A")},{block_head},{sm("G")}<>TRUE),"")', None,
              f'=IFERROR(FILTER({{{sm("B")},{sm("A")},{sm("I")}}},{sm("I")}<>""),"")', None, None, None,
-             f'=IFERROR(FILTER({{{ik("A")},{ik("B")},{ik("L")}}},{ik("L")}<>""),"")', None, None]]
+             f'=IFERROR(FILTER({{{ik("A")},{ik("B")},{ik("L")}}},{ik("L")}<>""),"")', None, None, None,
+             # 例外と特記事項の確認内容を縦に重ねて一覧にする（特記事項には科目が無いので「（特記事項）」と出す）
+             f'=IFERROR(FILTER(VSTACK({{{ex("A")},{ex("B")},{ex("E")}}},'
+             f'{{{rm("A")},IF({rm("A")}="","","（特記事項）"),{rm("C")}}}),'
+             f'VSTACK({ex("E")},{rm("C")})<>""),"")', None, None]]
     red = [("B3", "=$B$3>0"), ("D3", "=$D$3>0"), ("F3", '=$F$3<>""'), (f"A6:A{LAST_ROW}", '=A6<>""'),
-           (f"C6:E{LAST_ROW}", '=$E6<>""'), (f"G6:I{LAST_ROW}", '=$I6<>""')]
+           (f"C6:E{LAST_ROW}", '=$E6<>""'), (f"G6:I{LAST_ROW}", '=$I6<>""'), (f"K6:M{LAST_ROW}", '=$M6<>""')]
     return rows, red
 
 
@@ -267,7 +280,7 @@ def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book
     block = f"INT((ROW()-{FIRST_ROW})/{slots})+1"
     nth = f"MOD(ROW()-{FIRST_ROW},{slots})+1"
     ros = lambda c: f"{ROSTER_SHEET}!${c}${FIRST_ROW}:${c}${ROSTER_LAST}"
-    sub = lambda c: f"{SUBJECT_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + 96}"
+    sub = lambda c: f"{SUBJECT_SHEET}!${c}${FIRST_ROW}:${c}${SUBJECT_LAST}"
     for k in range(n_rows):
         r = FIRST_ROW + k
         sid = f'=IFERROR(INDEX(FILTER({ros("A")},{ros("D")}=INDEX({sub("A")},{block})),{nth}),"")'

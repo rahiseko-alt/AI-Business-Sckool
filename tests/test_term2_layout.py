@@ -293,7 +293,7 @@ def test_check_sheet_counts_and_lists_from_summary_and_intake():
     assert "設定!$F$7>0" in check[2][3] and "設定!$F$7>0" in check[2][5]
     assert "FILTER(集計!$A$4:$A$11," in check[5][0]
     assert "集計!$I$4:$I$11<>\"\"" in check[5][2] and "'出席の受け口'!$L$4:$L$9<>\"\"" in check[5][6]
-    assert [r for r, _ in book.red[CHECK_SHEET]] == ["B3", "D3", "F3", "A6:A1000", "C6:E1000", "G6:I1000"]
+    assert [r for r, _ in book.red[CHECK_SHEET]] == ["B3", "D3", "F3", "A6:A1000", "C6:E1000", "G6:I1000", "K6:M1000"]
     links = book.tabs[LINKS_SHEET]
     assert [links[r][4] for r in range(2, 8)] == ["評定", "A", "B", "C", "D", "E"]
     assert [links[r][5] for r in range(3, 8)] == [None, None, None, None, 0]
