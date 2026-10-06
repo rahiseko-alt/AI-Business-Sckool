@@ -27,7 +27,8 @@ Excel 1ファイルに、成績表・検算・完全性・根拠・採点ルー�
 | `src/grading/issues/` `decisions/` | 停止理由と回答の記録。同じ問題は二度聞かない |
 | `src/grading/audit/` | 全処理の監査ログ |
 | `src/grading/{importing,classification,extraction,normalization,identity,rules,calculation,validation,export}/` | 各工程（未実装） |
-| `docs/adr/0001-*.md` | 守るべき原則 |
+| `src/grading/docs/adr/` | 成績統合の決定（0001 が守るべき原則）。用語は `src/grading/CONTEXT.md` |
+| `CONTEXT.md` `docs/adr/` `docs/drafts/` ほか | シラバス作成（別の文脈。`CONTEXT-MAP.md` 参照） |
 
 ```bash
 pip install -e '.[dev]'   # クラウドの会話では開始時に自動実行

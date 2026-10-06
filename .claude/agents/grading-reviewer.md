@@ -9,7 +9,7 @@ tools: Read, Glob, Grep, Bash
 
 ## 根拠にしてよいもの（これ以外で判断しない）
 
-- `docs/adr/0001-no-inference-halt-and-trace.md`（守るべき原則）
+- `src/grading/docs/adr/0001-no-inference-halt-and-trace.md`（守るべき原則）
 - `data/input/decisions.json`（利用者が答えて確定した決まり）
 - `scripts/build_ai_version.py` 冒頭の説明（採点の決まり）
 - 元資料: `data/input/attendance_*.xlsx`（出席簿）、`data/input/file3_ai.xlsx`（国際の成績表）、`data/input/file4.xlsx`（総合の成績表）
