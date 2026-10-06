@@ -20,6 +20,9 @@ SUBMITTED_CELL = "F1"  # 提出済みのチェック（黄）
 DEPT_CELL = "H1"       # 提出用の表の学科（白）
 TOTAL_POINTS = "L2"    # 配点の合計（白、100でなければ赤）
 INTAKE_SHEET = "出席の受け口"          # 成績表: 学籍番号×科目ごとの授業数・欠席・遅刻
+CHECK_SHEET = "確認"                   # 成績表: 未提出・要確認の件数と一覧（赤が0件なら印刷してよい）
+GRADES = ["A", "B", "C", "D", "E"]     # 評定（設定の E4:E8）。E は 0 点以上
+GRADE_MIN = "F4:F7"                    # 設定: A〜D の「この点以上」（黄）。上から大きい順
 LINK_SHEET_ATTENDANCE = "出席簿つなぎ"  # 成績表: 出席簿を読む唯一の場所。出席簿の形が変わったらここだけ直す
 ATTENDANCE_COPY = "出席の写し"          # 提出用の表: 成績表の受け口の写し（B1 に成績表のアドレス）
 ROSTER_COPY = "名簿の写し"              # 提出用の表: 成績表の名簿と受講しない学生の写し
@@ -148,40 +151,118 @@ def master_cells(roster: list[tuple[str, str, str, str]], subjects: list[tuple[s
                  EXCLUDE_SHEET: [f"A{FIRST_ROW}:B{last(EXCLUDE_ROWS)}"]})
 
 
+def _grade_ok(prefix: str = f"{LINKS_SHEET}!") -> str:
+    """評定の基準（設定の F4:F7）が4つとも数で、上から大きい順、D の下限が0より大きいか。"""
+    f = lambda r: f"{prefix}$F${r}"
+    return (f"AND(COUNT({prefix}$F$4:$F$7)=4,{f(4)}>{f(5)},{f(5)}>{f(6)},{f(6)}>{f(7)},{f(7)}>0)")
+
+
+def _grade(r: int) -> str:
+    """合計から評定を出す（前期の決まり: 下限の降順に見て、合計がその点以上なら決まる。どれも満たさなければ E）。
+    基準が未入力・順番がおかしいとき、出席・態度・テストのどれかが数でないとき（空欄・要確認）は「要確認」
+    （前期も、値がそろわない学生の評定は推測で決めず止めていた）。"""
+    f = lambda k: f"{LINKS_SHEET}!$F${k}"
+    nested = '"E"'
+    for k, g in reversed(list(enumerate(GRADES[:-1], FIRST_ROW))):
+        nested = f'IF($F{r}>={f(k)},"{g}",{nested})'
+    return (f'=IF(OR($B{r}="",$F{r}=""),"",IF(OR(NOT({_grade_ok()}),COUNT($C{r},$D{r},$E{r})<3),"要確認",'
+            f'{nested}))')
+
+
+def _summary_check(r: int, head: str) -> str:
+    """集計の確認内容: 何がおかしいかを「・」でつないで並べる。何も無ければ空欄。"""
+    bad = lambda c: (f'AND(${c}{r}<>"",${c}{r}<>"要確認",OR(NOT(ISNUMBER(${c}{r})),${c}{r}<0,'
+                     f'${c}{r}>INDEX(${c}:${c},{head})))')
+    return (f'=IF($A{r}="","",TEXTJOIN("・",TRUE,IF($B{r}="","学生のいない行に手入力",""),'
+            f'IF(AND($B{r}<>"",$G{r}=TRUE,OR($C{r}="",$D{r}="",$E{r}="")),"提出済みなのに空欄",""),'
+            f'IF(OR({bad("C")},{bad("D")},{bad("E")}),"点数がおかしい（配点超え・負・数値でない）",""),'
+            f'IF($C{r}="要確認","出席の数がおかしい","")))')
+
+
+def _intake_check(r: int) -> str:
+    """出席の受け口の確認内容。学生のいない行への手入力と、採用値（授業数・欠席・遅刻）のおかしさ。"""
+    i, j, k = f"$I{r}", f"$J{r}", f"$K{r}"
+    bad = f"OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER({j})),NOT(ISNUMBER({k})),{j}<0,{k}<0,{j}+{k}/3>{i})"
+    return (f'=IF(AND($A{r}="",COUNTA($F{r}:$H{r})=0),"",IF($A{r}="","学生のいない行に手入力",'
+            f'IF({bad},"授業数・欠席・遅刻がおかしい","")))')
+
+
+def _check_sheet(last_sum: int, last_intake: int, height: int) -> tuple[list[list], list[tuple[str, str]]]:
+    """確認シート: 未提出の科目と、集計・出席の受け口の確認内容を一覧にする。赤が0件になったら印刷してよい。"""
+    sm = lambda c: f"{SUMMARY_SHEET}!${c}${FIRST_ROW}:${c}${last_sum}"
+    ik = lambda c: f"'{INTAKE_SHEET}'!${c}${FIRST_ROW}:${c}${last_intake}"
+    block_head = f"MOD(ROW({sm('A')})-{FIRST_ROW},{height})=0"   # 科目ごとの見出しの行
+    ok = _grade_ok()
+    rows = [[CHECK_SHEET] + [None] * 8, ["赤が0件になったら印刷してよい"] + [None] * 8,
+            ["未提出", f"=SUMPRODUCT(({block_head})*({sm('G')}<>TRUE))",
+             "要確認", f'=COUNTIF({sm("I")},"?*")+COUNTIF({ik("L")},"?*")+IF({ok},0,1)',
+             "評定の基準", f'=IF({ok},"","未入力または順番がおかしい")', None, None, None],
+            [None] * 9,
+            ["未提出の科目", None, "学籍番号", "科目", "何がおかしいか（成績）", None,
+             "学籍番号", "科目", "何がおかしいか（出席）"],
+            [f'=IFERROR(FILTER({sm("A")},{block_head},{sm("G")}<>TRUE),"")', None,
+             f'=IFERROR(FILTER({{{sm("B")},{sm("A")},{sm("I")}}},{sm("I")}<>""),"")', None, None, None,
+             f'=IFERROR(FILTER({{{ik("A")},{ik("B")},{ik("L")}}},{ik("L")}<>""),"")', None, None]]
+    red = [("B3", "=$B$3>0"), ("D3", "=$D$3>0"), ("F3", '=$F$3<>""'), (f"A6:A{LAST_ROW}", '=A6<>""'),
+           (f"C6:E{LAST_ROW}", '=$E6<>""'), (f"G6:I{LAST_ROW}", '=$I6<>""')]
+    return rows, red
+
+
 def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book:
-    """成績表: 設定のつなぎ先一覧（黄）と、それを経由して提出用の表を読む集計・出席の受け口。
+    """成績表: 設定のつなぎ先一覧と評定の基準（黄）、それを経由して提出用の表を読む集計・出席の受け口、確認。
 
     subjects: (学科, 科目名)。科目シートと同じ順に並べる。
-    集計は科目ごとのまとまりで、各行に 科目名・学籍番号・出席・態度・テスト・合計・提出済み。"""
+    集計は科目ごとのまとまりで、各行に 科目名・学籍番号・出席・態度・テスト・合計・提出済み・評定・確認内容、
+    その右に提出用の表の手入力（出席・態度・テスト）。"""
     links = [["つなぎ先一覧", None, None], ["提出用の表のアドレスを貼る。学校のアカウントへ移したら、ここだけ貼り直す", None, None],
              ["科目", "アドレス", "学科"]]
     links += [[s, None, d] for d, s in subjects] + [["出席簿", None, None]]
+    # 右の E:F に評定の基準（A〜D の下限は黄、E は 0 で固定）
+    links = [row + [None] * 3 for row in links]
+    links += [[None] * 6 for _ in range(FIRST_ROW + len(GRADES) - 1 - len(links))]
+    links[FIRST_ROW - 2][4:6] = ["評定", "この点以上"]
+    for k, g in enumerate(GRADES):
+        links[FIRST_ROW - 1 + k][4] = g
+    links[FIRST_ROW - 1 + len(GRADES) - 1][5] = 0
     book_url = f"{LINKS_SHEET}!$B${FIRST_ROW + len(subjects)}"
     last = FIRST_ROW + slots - 1
     cols = ",".join(str(c) for c in [1, *ADOPTED_COLS, 12])
-    summary = [[SUMMARY_SHEET] + [None] * 6, [None] * 7, ["科目", "学籍番号", "出席", "態度", "テスト", "合計", "提出済み"]]
+    summary = [[SUMMARY_SHEET] + [None] * 11, [None] * 12,
+               ["科目", "学籍番号", "出席", "態度", "テスト", "合計", "提出済み", "評定", "確認内容",
+                "出席（手入力）", "態度（手入力）", "テスト（手入力）"]]
     # 科目ごとのまとまり（見出し1行＋学生 slots 行）。何番目のまとまりかを行番号から出し、
     # 設定のつなぎ先一覧の同じ番目を読む。どのまとまりも同じ式なので、1つ書いて下へ写せる
     height = slots + 1
     nth = f"INT((ROW()-{FIRST_ROW})/{height})+1"
+    head = f"{FIRST_ROW}+{height}*({nth}-1)"     # このまとまりの見出しの行（配点・提出済みがある）
     col = lambda c: f"{LINKS_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + len(subjects) - 1}"
     url = f"INDEX({col('B')},{nth})"
+    imp = lambda rng: f"IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!{rng}\")"
+    manual_cols = ",".join(str(ord(p[2]) - ord("A") + 1) for p in PARTS)   # 提出用の表の手入力の列
+    points_cols = ",".join(str(c - 4) for c in [*ADOPTED_COLS, 12])         # E2:L2 のうち配点3つと合計
     for k in range(len(subjects)):
         head_row = FIRST_ROW + k * height
-        summary.append([f'=INDEX({col("C")},{nth})&"　"&INDEX({col("A")},{nth})', None, None, None, None, None,
-                        f"=IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!{SUBMITTED_CELL}\")"])
+        summary.append([f'=INDEX({col("C")},{nth})&"　"&INDEX({col("A")},{nth})', None,
+                        f"=CHOOSECOLS({imp('E2:L2')},{points_cols})", None, None, None,
+                        f"={imp(SUBMITTED_CELL)}", None,
+                        f'=IF($F{head_row}<>100,"配点の合計が100でない","")', None, None, None])
         for i in range(slots):
             r = head_row + 1 + i
-            first = f"=CHOOSECOLS(IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!A{FIRST_ROW}:L{last}\"),{cols})" if i == 0 else None
-            summary.append([f'=IF($B{r}="","",INDEX({col("A")},{nth}))', first, None, None, None, None,
-                            f'=IF($B{r}="","",INDEX($G:$G,{FIRST_ROW}+{height}*({nth}-1)))'])
+            first = i == 0
+            summary.append([f'=IF(AND($B{r}="",COUNTA($J{r}:$L{r})=0),"",INDEX({col("A")},{nth}))',
+                            f"=CHOOSECOLS({imp(f'A{FIRST_ROW}:L{last}')},{cols})" if first else None,
+                            None, None, None, None,
+                            f'=IF($B{r}="","",INDEX($G:$G,{head}))', _grade(r), _summary_check(r, head),
+                            f"=CHOOSECOLS({imp(f'A{FIRST_ROW}:L{last}')},{manual_cols})" if first else None,
+                            None, None])
     link = [["出席簿つなぎ", None], ["出席簿の形が変わったら、ここの式だけ直す（学籍番号・科目・授業数・欠席・遅刻の順に並べる）", None],
             ["学籍番号", "科目", "授業数", "欠席", "遅刻"],
             [f"=IMPORTRANGE({book_url},\"'出席'!A2:E{LAST_ROW}\")"]]
     # 受け口の行は 科目（科目シートの順）× 学科の学生（名簿の順）。科目ごとに slots 行ずつ取る。
     # 名簿や科目を直せば、ここも自動で並び直る（式は行によらず同じなので、1行書いて下へ写せる）
     n_rows = len(subjects) * slots
-    intake = [["出席の受け口", None], ["出席簿つなぎから入る。間に合わないときは黄の欄に手で打つ（手入力が優先）", None], _INTAKE_HEAD]
+    intake = [["出席の受け口", None], ["出席簿つなぎから入る。間に合わないときは黄の欄に手で打つ（手入力が優先）", None],
+              _INTAKE_HEAD + ["確認内容"]]
     lk = lambda c: f"'{LINK_SHEET_ATTENDANCE}'!${c}${FIRST_ROW}:${c}${LAST_ROW}"
     block = f"INT((ROW()-{FIRST_ROW})/{slots})+1"
     nth = f"MOD(ROW()-{FIRST_ROW},{slots})+1"
@@ -194,7 +275,7 @@ def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book
         key = f"{lk('A')},$A{r},{lk('B')},$B{r}"
         linked = [f'=IF($A{r}="","",IF(COUNTIFS({key})=0,"",SUMIFS({lk(c)},{key})))' for c in "CDE"]
         adopted = [f'=IF($A{r}="","",IF({m}{r}="",{c}{r},{m}{r}))' for c, m in zip("CDE", "FGH")]
-        intake.append([sid, subject, *linked, None, None, None, *adopted])
+        intake.append([sid, subject, *linked, None, None, None, *adopted, _intake_check(r)])
     last_pair = FIRST_ROW + max(n_rows, 1) - 1
     i = f"$I{FIRST_ROW}"
     intake_red = [(f"I{FIRST_ROW}:K{last_pair}",
@@ -202,7 +283,10 @@ def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book
                    f'$J{FIRST_ROW}+$K{FIRST_ROW}/3>{i}))'),
                   (f"F{FIRST_ROW}:H{last_pair}", f'=AND($A{FIRST_ROW}="",F{FIRST_ROW}<>"")')]
     link_rows = FIRST_ROW + len(subjects)
-    return Book({LINKS_SHEET: links, SUMMARY_SHEET: summary, LINK_SHEET_ATTENDANCE: link, INTAKE_SHEET: intake},
-                {LINKS_SHEET: [f"B{FIRST_ROW}:B{link_rows}"],
+    check, check_red = _check_sheet(FIRST_ROW - 1 + len(subjects) * height, last_pair, height)
+    return Book({LINKS_SHEET: links, SUMMARY_SHEET: summary, LINK_SHEET_ATTENDANCE: link, INTAKE_SHEET: intake,
+                 CHECK_SHEET: check},
+                {LINKS_SHEET: [f"B{FIRST_ROW}:B{link_rows}", GRADE_MIN],
                  INTAKE_SHEET: [f"F{FIRST_ROW}:H{last_pair}"]},
-                {INTAKE_SHEET: intake_red})
+                {INTAKE_SHEET: intake_red, LINKS_SHEET: [(GRADE_MIN, f"=NOT({_grade_ok('')})")],
+                 CHECK_SHEET: check_red})
