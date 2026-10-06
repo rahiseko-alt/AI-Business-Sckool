@@ -15,7 +15,8 @@
 - シラバス作成（rahiseko-alt/sirabasu#1〜#5）と成績統合（#6・#7）を main に取り込んだ。今後の作業は main から始める
 - 2つの文脈は `CONTEXT-MAP.md` で分けた。シラバス作成は `CONTEXT.md`＋`docs/adr/`、成績統合は `src/grading/CONTEXT.md`＋`src/grading/docs/adr/`（ADR 0001〜0003 をここへ移した）
 - 引き継ぎメモは両方の記録を残してつないだ。シラバス作成の最後の記録（2026-09-29「課題フォルダを全削除した」ほか）は `docs/agents/handover-archive.md` にある
-- 後期分のファイルは利用者指定のドライブフォルダ（id 1msOz-lxP30N7fL83Lo1LQ92CBGSVOJw1）に入れる。先に作った「後期バージョン」フォルダ（id 11Ikzz--e_RWq8axmUCW1AUVpqt7p9EUi）と中の「提出用の表_試作科目」は、そちらへ移すか作り直す
+- 後期分のファイルは利用者指定のドライブフォルダ「教員」（id 1msOz-lxP30N7fL83Lo1LQ92CBGSVOJw1、持ち主は学校のアカウント aibisiness.kyouin、利用者は編集可）に入れる。学校のアカウントの中なので、後で移す手間が減る
+- 「提出用の表_試作科目」（id 1J6yyZ_pislqjtRYDf1bXl4IAcT3gFxa6VsI52op0xs8）は「教員」へ移した。先に作った個人ドライブの「後期バージョン」フォルダ（id 11Ikzz--e_RWq8axmUCW1AUVpqt7p9EUi）は空のまま残っている（消すかは利用者が決める）
 
 **次にやること**
 
