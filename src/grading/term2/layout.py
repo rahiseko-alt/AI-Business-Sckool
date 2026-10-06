@@ -92,7 +92,8 @@ def submission_cells(subject: str, teacher: str, dept: str, slots: int = SLOTS) 
 
     submitted = _abs(SUBMITTED_CELL)
     yellow = [p[3] + "2" for p in PARTS] + [SUBMITTED_CELL] + [f"{p[2]}{FIRST_ROW}:{p[2]}{last}" for p in PARTS]
-    red = [(TOTAL_POINTS, f"={_abs(TOTAL_POINTS)}<>100"),
+    # 配点がまだ1つも入っておらず提出済みでもない（先生が手を付けていない）間は、合計0を赤にしない
+    red = [(TOTAL_POINTS, f"=AND(OR(COUNT($E$2,$H$2,$K$2)>0,{_abs(SUBMITTED_CELL)}=TRUE),{_abs(TOTAL_POINTS)}<>100)"),
            (f"C{FIRST_ROW}:C{last}", f'=C{FIRST_ROW}="要確認"'),
            # 条件付き書式は別シートを直接指せないので INDIRECT を使う
            (f"A{FIRST_ROW}:A{last}",
@@ -184,12 +185,14 @@ def _summary_check(r: int, head: str) -> str:
             f'IF($C{r}="要確認","出席の数がおかしい","")))')
 
 
-def _intake_check(r: int) -> str:
-    """出席の受け口の確認内容。学生のいない行への手入力と、採用値（授業数・欠席・遅刻）のおかしさ。"""
+def _intake_check(r: int, book_url: str) -> str:
+    """出席の受け口の確認内容。学生のいない行への手入力と、採用値（授業数・欠席・遅刻）のおかしさ。
+    数がまだ1つも無い行は、出席簿のアドレス（book_url）が未設定の間は要確認にしない（つなぐ前の正常な状態）。"""
     i, j, k = f"$I{r}", f"$J{r}", f"$K{r}"
     bad = f"OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER({j})),NOT(ISNUMBER({k})),{j}<0,{k}<0,{j}+{k}/3>{i})"
     return (f'=IF(AND($A{r}="",COUNTA($F{r}:$H{r})=0),"",IF($A{r}="","学生のいない行に手入力",'
-            f'IF({bad},"授業数・欠席・遅刻がおかしい","")))')
+            f'IF(AND(COUNT({i},{j},{k})=0,{book_url}=""),"",'
+            f'IF({bad},"授業数・欠席・遅刻がおかしい",""))))')
 
 
 def _check_sheet(last_sum: int, last_intake: int, height: int) -> tuple[list[list], list[tuple[str, str]]]:
@@ -258,7 +261,8 @@ def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book
         summary.append([f'=INDEX({col("C")},{nth})&"　"&INDEX({col("A")},{nth})', None,
                         f"=CHOOSECOLS({imp('E2:L2')},{points_cols})", None, None, None,
                         f"={imp(SUBMITTED_CELL)}", None,
-                        f'=IF($F{head_row}<>100,"配点の合計が100でない","")', None, None, None])
+                        f'=IF(AND(OR(COUNT($C{head_row},$D{head_row},$E{head_row})>0,$G{head_row}=TRUE),$F{head_row}<>100),'
+                        f'"配点の合計が100でない","")', None, None, None])
         for i in range(slots):
             r = head_row + 1 + i
             first = i == 0
@@ -288,11 +292,14 @@ def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book
         key = f"{lk('A')},$A{r},{lk('B')},$B{r}"
         linked = [f'=IF($A{r}="","",IF(COUNTIFS({key})=0,"",SUMIFS({lk(c)},{key})))' for c in "CDE"]
         adopted = [f'=IF($A{r}="","",IF({m}{r}="",{c}{r},{m}{r}))' for c, m in zip("CDE", "FGH")]
-        intake.append([sid, subject, *linked, None, None, None, *adopted, _intake_check(r)])
+        intake.append([sid, subject, *linked, None, None, None, *adopted, _intake_check(r, book_url)])
     last_pair = FIRST_ROW + max(n_rows, 1) - 1
     i = f"$I{FIRST_ROW}"
     intake_red = [(f"I{FIRST_ROW}:K{last_pair}",
-                   f'=AND($A{FIRST_ROW}<>"",OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER($J{FIRST_ROW})),$J{FIRST_ROW}>{i},'
+                   # 条件付き書式は別シートを直接指せないので、出席簿のアドレスは INDIRECT で見る
+                   f'=AND($A{FIRST_ROW}<>"",NOT(AND(COUNT({i},$J{FIRST_ROW},$K{FIRST_ROW})=0,'
+                   f'INDIRECT("{book_url.replace("$", "")}")="")),'
+                   f'OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER($J{FIRST_ROW})),$J{FIRST_ROW}>{i},'
                    f'$J{FIRST_ROW}+$K{FIRST_ROW}/3>{i}))'),
                   (f"F{FIRST_ROW}:H{last_pair}", f'=AND($A{FIRST_ROW}="",F{FIRST_ROW}<>"")')]
     link_rows = FIRST_ROW + len(subjects)

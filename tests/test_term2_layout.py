@@ -265,13 +265,16 @@ def test_summary_header_flags_points_not_totalling_100(tmp_path):
 
 
 @needs_calc
-def test_intake_check_flags_bad_counts_and_manual_entry_without_student(tmp_path):
+@pytest.mark.parametrize("book_url", [None, "https://example.com/出席簿"])
+def test_intake_check_flags_bad_counts_and_manual_entry_without_student(tmp_path, book_url):
     cases = [("K01", None, (30, 2, 1)), ("K02", None, (0, 0, 0)), ("K03", None, (None, None, None)),
              ("K04", None, (10, 10, 3)), ("K05", None, (10, -1, 0)), (None, 5, (5, 0, 0)), (None, None, (None,) * 3)]
     book = gradebook_cells([("国際", "科目A")], slots=len(cases))
     wb = Workbook()
     wb.remove(wb.active)
     ws = _sheet(wb, INTAKE_SHEET, book.tabs[INTAKE_SHEET], keep=lambda c: c == 12)
+    links = wb.create_sheet(LINKS_SHEET)
+    links.cell(FIRST_ROW + 1, 2, book_url)                                # 出席簿のアドレス（科目1つの次の行）
     for k, (sid, manual, counts) in enumerate(cases):
         r = FIRST_ROW + k
         ws.cell(r, 1, sid), ws.cell(r, 2, "科目A" if sid else None), ws.cell(r, 6, manual)
@@ -279,8 +282,15 @@ def test_intake_check_flags_bad_counts_and_manual_entry_without_student(tmp_path
             ws.cell(r, c, v)
     got = _calc(wb, tmp_path)[INTAKE_SHEET]
     bad = "授業数・欠席・遅刻がおかしい"
+    # 数が1つも無い行（K03）は、出席簿をつなぐまでは要確認にしない
     assert [got.cell(FIRST_ROW + k, 12).value for k in range(len(cases))] == [
-        None, bad, bad, bad, bad, "学生のいない行に手入力", None]
+        None, bad, bad if book_url else None, bad, bad, "学生のいない行に手入力", None]
+
+
+@needs_calc
+def test_points_total_is_not_red_until_teacher_starts(tmp_path):
+    rule = dict(submission_cells("科目A", "担当", "国際", slots=1).red)["L2"]
+    assert "COUNT($E$2,$H$2,$K$2)>0" in rule and "$F$1=TRUE" in rule
 
 
 def test_check_sheet_counts_and_lists_from_summary_and_intake():
