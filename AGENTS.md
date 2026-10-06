@@ -10,7 +10,7 @@ Issues and specs live as GitHub issues in this repo, via the `gh` CLI. See `docs
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` at the repo root, ADRs in `docs/adr/`. Both are created lazily by `domain-modeling`. See `docs/agents/domain.md`.
+Multi-context: `CONTEXT-MAP.md` at the repo root lists the contexts (シラバス作成: `CONTEXT.md` + `docs/adr/`; 成績統合: `src/grading/CONTEXT.md` + `src/grading/docs/adr/`). Created lazily by `domain-modeling`. See `docs/agents/domain.md`.
 
 ## Navigation (repo-local)
 

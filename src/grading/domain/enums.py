@@ -1,0 +1,70 @@
+"""全工程で共有する状態・種別。値は DB にそのまま保存される。"""
+
+from enum import StrEnum
+
+
+class Stage(StrEnum):
+    LOAD = "LOAD"
+    CLASSIFY = "CLASSIFY"
+    EXTRACT = "EXTRACT"
+    IDENTITY_RESOLUTION = "IDENTITY_RESOLUTION"
+    RULE_BINDING = "RULE_BINDING"
+    CALCULATE = "CALCULATE"
+    VALIDATE = "VALIDATE"
+    MERGE = "MERGE"
+    FINAL_CHECK = "FINAL_CHECK"
+    EXPORT = "EXPORT"
+    ASK_USER = "ASK_USER"
+    DONE = "DONE"
+
+
+class DataStatus(StrEnum):
+    CONFIRMED = "CONFIRMED"
+    WARNING = "WARNING"
+    BLOCKED = "BLOCKED"
+
+
+class MatchStatus(StrEnum):
+    CONFIRMED = "CONFIRMED"
+    LIKELY = "LIKELY"
+    AMBIGUOUS = "AMBIGUOUS"
+    UNMATCHED = "UNMATCHED"
+
+
+class SourceRole(StrEnum):
+    ATTENDANCE = "attendance"
+    ASSIGNMENT = "assignment"
+    EXAM = "exam"
+    PRESENTATION = "presentation"
+    SCORE = "score"
+    GRADING_RULE = "grading_rule"
+    STUDENT_MASTER = "student_master"
+    FINAL_GRADE = "final_grade"
+
+
+class ValueKind(StrEnum):
+    """セルの値の種類。互いに同一視しない。"""
+
+    NUMBER = "NUMBER"
+    BLANK = "BLANK"
+    ZERO = "ZERO"
+    NOT_SUBMITTED = "NOT_SUBMITTED"
+    ABSENT = "ABSENT"
+    UNGRADED = "UNGRADED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    UNKNOWN = "UNKNOWN"
+
+
+class IssueType(StrEnum):
+    IDENTITY_AMBIGUOUS = "IDENTITY_AMBIGUOUS"
+    IDENTITY_UNMATCHED = "IDENTITY_UNMATCHED"
+    RULE_UNKNOWN = "RULE_UNKNOWN"
+    DATA_CONFLICT = "DATA_CONFLICT"
+    BLANK_MEANING_UNKNOWN = "BLANK_MEANING_UNKNOWN"
+    OUT_OF_RANGE = "OUT_OF_RANGE"
+    SUBJECT_UNKNOWN = "SUBJECT_UNKNOWN"
+    INCOMPLETE = "INCOMPLETE"
+    ITEM_UNKNOWN = "ITEM_UNKNOWN"
+    DUPLICATE = "DUPLICATE"
+    CALCULATION_MISMATCH = "CALCULATION_MISMATCH"
+    INPUT_BLOCKED = "INPUT_BLOCKED"
