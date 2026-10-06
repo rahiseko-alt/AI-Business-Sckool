@@ -4,19 +4,29 @@
 色の決まり（ADR 0003）: 黄＝人が入力、白＝式（保護付き）、赤＝要確認。
 成績表が提出用の表を読むときは、必ず「設定」シートのつなぎ先一覧のアドレスを経由する
 （学校のアカウントへ移したとき、そこを貼り直すだけで済むように）。
+提出用の表が成績表を読むときは、「出席の写し」の B1 にある成績表のアドレスだけを経由する。
 """
 
 from dataclasses import dataclass, field
 
 SUBMISSION_TAB = "提出"
 LINKS_SHEET = "設定"
-FIRST_ROW = 4          # 学生の行の開始（1行目＝科目名・担当・提出済み、2行目＝配点、3行目＝見出し）
+SUMMARY_SHEET = "集計"
+ROSTER_SHEET = "名簿"                  # 成績表: 学籍番号・氏名・カタカナ・学科（黄）
+SUBJECT_SHEET = "科目"                 # 成績表: 学科・科目名・担当・単位・形態（黄）
+EXCLUDE_SHEET = "受講しない学生"        # 成績表: 学籍番号・科目名（黄）
+FIRST_ROW = 4          # 学生の行の開始（1行目＝科目名・担当・提出済み・学科、2行目＝配点、3行目＝見出し）
 SUBMITTED_CELL = "F1"  # 提出済みのチェック（黄）
+DEPT_CELL = "H1"       # 提出用の表の学科（白）
 TOTAL_POINTS = "L2"    # 配点の合計（白、100でなければ赤）
 INTAKE_SHEET = "出席の受け口"          # 成績表: 学籍番号×科目ごとの授業数・欠席・遅刻
 LINK_SHEET_ATTENDANCE = "出席簿つなぎ"  # 成績表: 出席簿を読む唯一の場所。出席簿の形が変わったらここだけ直す
-ATTENDANCE_COPY = "出席の写し"          # 提出用の表: 成績表の受け口の写し
+ATTENDANCE_COPY = "出席の写し"          # 提出用の表: 成績表の受け口の写し（B1 に成績表のアドレス）
+ROSTER_COPY = "名簿の写し"              # 提出用の表: 成績表の名簿と受講しない学生の写し
 LAST_ROW = 1000                        # 写しや一覧を数える範囲の下端
+SLOTS = 35                             # 提出用の表の学生の行数（学科の人数＋入れ替わりの余り）
+EXCLUDE_ROWS = 50                      # 受講しない学生の黄の行数
+ROSTER_LAST = 203                      # 名簿の写しの下端（名簿200人まで）
 
 # 出席・態度・テストそれぞれ（自動・手入力・採用）の列。配点は採用の列の2行目に置く
 PARTS = [("出席", "C", "D", "E"), ("態度", "F", "G", "H"), ("テスト", "I", "J", "K")]
@@ -38,41 +48,68 @@ class Book:
     red: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
 
 
-def submission_cells(subject: str, teacher: str, student_ids: list[str]) -> Cells:
-    """提出用の表: 配点・提出済み・学生ごとの自動／手入力／採用値と合計。"""
-    last = FIRST_ROW + len(student_ids) - 1
-    top = ["科目名", subject, "担当", teacher, "提出済み", False, None, None, None, None, None, "配点の合計"]
+def _abs(cell: str) -> str:
+    return f"${cell[0]}${cell[1:]}"
+
+
+def submission_cells(subject: str, teacher: str, dept: str, slots: int = SLOTS) -> Cells:
+    """提出用の表: 配点・提出済み・学生ごとの自動／手入力／採用値と合計。
+
+    学生の行は、名簿の写しから自分の学科の学生を名簿の順に並べる（k 行目＝学科の k 人目）。
+    受講しない学生はその行が空欄になる（詰めない。詰めると、先生が手入力した点が別の学生の行へずれるため）。"""
+    last = FIRST_ROW + slots - 1
+    dept_ref = f"{SUBMISSION_TAB}!{_abs(DEPT_CELL)}"
+    top = ["科目名", subject, "担当", teacher, "提出済み", False, "学科", dept, None, None, None, "配点の合計"]
     points = ["配点", None, None, None, None, None, None, None, None, None, None, "=SUM(E2,H2,K2)"]
     for name, _, _, adopted in PARTS:
-        col = ord(adopted) - ord("A")
-        points[col - 1] = name
+        points[ord(adopted) - ord("A") - 1] = name
     head = ["学籍番号", "氏名"]
     for name, *_ in PARTS:
         head += [f"{name}（自動）", f"{name}（手入力）", f"{name}（採用）"]
     head += ["合計", "授業数", "欠席", "遅刻"]
     rows = [top, points, head]
-    for i, sid in enumerate(student_ids):
+    rc = lambda c: f"'{ROSTER_COPY}'!${c}${FIRST_ROW}:${c}${ROSTER_LAST}"
+    for i in range(slots):
         r = FIRST_ROW + i
-        row = [sid, None]
+        sid = f"IFERROR(INDEX({rc('A')},MATCH(ROW()-{FIRST_ROW - 1},{rc('E')},0)),\"\")"   # 行によらず同じ式
+        sid_cell = (f'=IF({sid}="","",IF(COUNTIFS({rc("G")},{sid},{rc("H")},$B$1)>0,"",{sid}))')
+        name = f'=IF($A{r}="","",IFERROR(INDEX({rc("B")},MATCH($A{r},{rc("A")},0)),""))'
+        row = [sid_cell, name]
         for _, auto, manual, _ in PARTS:
-            row += [None, None, f'=IF({manual}{r}="",{auto}{r},{manual}{r})']
+            row += [None, None, f'=IF($A{r}="","",IF({manual}{r}="",{auto}{r},{manual}{r}))']
         row[2] = _auto_attendance(r)
         row.append(f'=IF(COUNT(E{r},H{r},K{r})=0,"",SUM(E{r},H{r},K{r}))')
         row += [_from_copy(col, r) for col in "IJK"]
         rows.append(row)
 
-    submitted = "$" + SUBMITTED_CELL[0] + "$" + SUBMITTED_CELL[1:]
+    submitted = _abs(SUBMITTED_CELL)
     yellow = [p[3] + "2" for p in PARTS] + [SUBMITTED_CELL] + [f"{p[2]}{FIRST_ROW}:{p[2]}{last}" for p in PARTS]
-    red = [(TOTAL_POINTS, f"=${TOTAL_POINTS[0]}${TOTAL_POINTS[1:]}<>100"),
-           (f"C{FIRST_ROW}:C{last}", f'=C{FIRST_ROW}="要確認"')]
-    for _, _, _, c in PARTS:
+    red = [(TOTAL_POINTS, f"={_abs(TOTAL_POINTS)}<>100"),
+           (f"C{FIRST_ROW}:C{last}", f'=C{FIRST_ROW}="要確認"'),
+           # 条件付き書式は別シートを直接指せないので INDIRECT を使う
+           (f"A{FIRST_ROW}:A{last}",
+            f'=AND($A{FIRST_ROW}<>"",COUNTIF(INDIRECT("{rc("A")}"),$A{FIRST_ROW})=0)')]
+    for _, _, manual, c in PARTS:
         cell = f"{c}{FIRST_ROW}"
         red.append((f"{c}{FIRST_ROW}:{c}{last}",
-                    f'=OR(AND({submitted}=TRUE,{cell}=""),'
-                    f'AND({cell}<>"",OR(NOT(ISNUMBER({cell})),{cell}<0,{cell}>{c}$2)))'))
+                    f'=AND($A{FIRST_ROW}<>"",OR(AND({submitted}=TRUE,{cell}=""),'
+                    f'AND({cell}<>"",OR(NOT(ISNUMBER({cell})),{cell}<0,{cell}>{c}$2))))'))
+        # 学生がいない行に手入力が残っている（名簿や受講しない学生を直した後のずれ）
+        red.append((f"{manual}{FIRST_ROW}:{manual}{last}", f'=AND($A{FIRST_ROW}="",{manual}{FIRST_ROW}<>"")'))
     copy = [["成績表のアドレス", None], ["成績表の「出席の受け口」の写し。ここは直さない", None], _INTAKE_HEAD,
             [f"=IMPORTRANGE(B1,\"'{INTAKE_SHEET}'!A{FIRST_ROW}:K{LAST_ROW}\")"]]
-    return Cells(rows, yellow, red, {ATTENDANCE_COPY: copy})
+    gb = f"'{ATTENDANCE_COPY}'!$B$1"
+    roster = [["成績表の「名簿」と「受講しない学生」の写し。ここは直さない"] + [None] * 7, [None] * 8,
+              ["学籍番号", "氏名", "カタカナ", "学科", "学科内の順番", None, "受講しない学籍番号", "科目名"]]
+    for i in range(ROSTER_LAST - FIRST_ROW + 1):
+        r = FIRST_ROW + i
+        row = [None] * 8
+        if i == 0:
+            row[0] = f"=IMPORTRANGE({gb},\"'{ROSTER_SHEET}'!A{FIRST_ROW}:D{ROSTER_LAST}\")"
+            row[6] = f"=IMPORTRANGE({gb},\"'{EXCLUDE_SHEET}'!A{FIRST_ROW}:B{ROSTER_LAST}\")"
+        row[4] = f'=IF(AND($A{r}<>"",$D{r}={dept_ref}),COUNTIFS($D${FIRST_ROW}:$D{r},{dept_ref},$A${FIRST_ROW}:$A{r},"<>"),"")'
+        roster.append(row)
+    return Cells(rows, yellow, red, {ATTENDANCE_COPY: copy, ROSTER_COPY: roster})
 
 
 _INTAKE_HEAD = ["学籍番号", "科目", "授業数（つなぎ）", "欠席（つなぎ）", "遅刻（つなぎ）",
@@ -83,7 +120,7 @@ def _from_copy(col: str, r: int) -> str:
     """出席の写しから、この学生・この科目（B1）の採用値を取る。行が無ければ空欄。"""
     rng = lambda c: f"'{ATTENDANCE_COPY}'!${c}${FIRST_ROW}:${c}${LAST_ROW}"
     key = f'{rng("A")},$A{r},{rng("B")},$B$1'
-    return f'=IF(COUNTIFS({key})=0,"",SUMIFS({rng(col)},{key}))'
+    return f'=IF($A{r}="","",IF(COUNTIFS({key})=0,"",SUMIFS({rng(col)},{key})))'
 
 
 def _auto_attendance(r: int) -> str:
@@ -92,44 +129,80 @@ def _auto_attendance(r: int) -> str:
     n, a, late = f"M{r}", f"N{r}", f"O{r}"
     bad = f"OR(NOT(ISNUMBER({n})),{n}<=0,NOT(ISNUMBER({a})),NOT(ISNUMBER({late})),{a}<0,{late}<0,{a}+{late}/3>{n})"
     lost, whole = f"(3*{a}+{late})", f"(3*{n})"
-    return (f'=IF($E$2="","",IF({bad},"要確認",IF(5*({whole}-{lost})<3*{whole},0,'
+    return (f'=IF(OR($A{r}="",$E$2=""),"",IF({bad},"要確認",IF(5*({whole}-{lost})<3*{whole},0,'
             f'$E$2-$E$2/10*INT(100*{lost}/(4*{whole})))))')
 
 
-def gradebook_cells(subjects: list[str], rows: int, student_ids: list[str] | None = None) -> Book:
-    """成績表（最小）: 設定のつなぎ先一覧（黄）と、それを経由して提出用の表の採用値・提出済みを読む集計。"""
-    links = [["つなぎ先一覧", None], ["提出用の表のアドレスを貼る。学校のアカウントへ移したら、ここだけ貼り直す", None],
-             ["科目", "アドレス"]]
-    links += [[s, None] for s in subjects] + [["出席簿", None]]
+def master_cells(roster: list[tuple[str, str, str, str]], subjects: list[tuple[str, str, str, int, str]]) -> Book:
+    """成績表の名簿・科目・受講しない学生（すべて黄）。roster: (学籍番号, 氏名, カタカナ, 学科)。
+    subjects: (学科, 科目名, 担当, 単位, 形態)。"""
+    names = [[ROSTER_SHEET, None, None, None], ["入れ替わりがあれば、ここだけ直す", None, None, None],
+             ["学籍番号", "氏名", "カタカナ", "学科"]] + [list(r) for r in roster]
+    subs = [[SUBJECT_SHEET] + [None] * 4, [None] * 5, ["学科", "科目名", "担当", "単位", "形態"]] + [list(s) for s in subjects]
+    excl = [[EXCLUDE_SHEET, None], ["受けない学生だけ1行ずつ書く。書くとその科目の提出用の表から消える", None],
+            ["学籍番号", "科目名"]]
+    last = lambda n: FIRST_ROW + n - 1
+    return Book({ROSTER_SHEET: names, SUBJECT_SHEET: subs, EXCLUDE_SHEET: excl},
+                {ROSTER_SHEET: [f"A{FIRST_ROW}:D{last(len(roster))}"],
+                 SUBJECT_SHEET: [f"A{FIRST_ROW}:E{last(len(subjects))}"],
+                 EXCLUDE_SHEET: [f"A{FIRST_ROW}:B{last(EXCLUDE_ROWS)}"]})
+
+
+def gradebook_cells(subjects: list[tuple[str, str]], slots: int = SLOTS) -> Book:
+    """成績表: 設定のつなぎ先一覧（黄）と、それを経由して提出用の表を読む集計・出席の受け口。
+
+    subjects: (学科, 科目名)。科目シートと同じ順に並べる。
+    集計は科目ごとのまとまりで、各行に 科目名・学籍番号・出席・態度・テスト・合計・提出済み。"""
+    links = [["つなぎ先一覧", None, None], ["提出用の表のアドレスを貼る。学校のアカウントへ移したら、ここだけ貼り直す", None, None],
+             ["科目", "アドレス", "学科"]]
+    links += [[s, None, d] for d, s in subjects] + [["出席簿", None, None]]
     book_url = f"{LINKS_SHEET}!$B${FIRST_ROW + len(subjects)}"
-    last = FIRST_ROW + rows - 1
+    last = FIRST_ROW + slots - 1
     cols = ",".join(str(c) for c in [1, *ADOPTED_COLS, 12])
-    summary = [["集計", None, None, None, None], ["提出済み", None, None, None, None],
-               ["学籍番号", "出席", "態度", "テスト", "合計"]]
-    for k, _ in enumerate(subjects):
-        url = f"{LINKS_SHEET}!$B${FIRST_ROW + k}"
-        summary[1][1] = f"=IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!{SUBMITTED_CELL}\")"
-        summary.append([f"=CHOOSECOLS(IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!A{FIRST_ROW}:L{last}\"),{cols})",
-                        None, None, None, None])
+    summary = [[SUMMARY_SHEET] + [None] * 6, [None] * 7, ["科目", "学籍番号", "出席", "態度", "テスト", "合計", "提出済み"]]
+    # 科目ごとのまとまり（見出し1行＋学生 slots 行）。何番目のまとまりかを行番号から出し、
+    # 設定のつなぎ先一覧の同じ番目を読む。どのまとまりも同じ式なので、1つ書いて下へ写せる
+    height = slots + 1
+    nth = f"INT((ROW()-{FIRST_ROW})/{height})+1"
+    col = lambda c: f"{LINKS_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + len(subjects) - 1}"
+    url = f"INDEX({col('B')},{nth})"
+    for k in range(len(subjects)):
+        head_row = FIRST_ROW + k * height
+        summary.append([f'=INDEX({col("C")},{nth})&"　"&INDEX({col("A")},{nth})', None, None, None, None, None,
+                        f"=IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!{SUBMITTED_CELL}\")"])
+        for i in range(slots):
+            r = head_row + 1 + i
+            first = f"=CHOOSECOLS(IMPORTRANGE({url},\"'{SUBMISSION_TAB}'!A{FIRST_ROW}:L{last}\"),{cols})" if i == 0 else None
+            summary.append([f'=IF($B{r}="","",INDEX({col("A")},{nth}))', first, None, None, None, None,
+                            f'=IF($B{r}="","",INDEX($G:$G,{FIRST_ROW}+{height}*({nth}-1)))'])
     link = [["出席簿つなぎ", None], ["出席簿の形が変わったら、ここの式だけ直す（学籍番号・科目・授業数・欠席・遅刻の順に並べる）", None],
             ["学籍番号", "科目", "授業数", "欠席", "遅刻"],
             [f"=IMPORTRANGE({book_url},\"'出席'!A2:E{LAST_ROW}\")"]]
-    pairs = [(sid, s) for s in subjects for sid in (student_ids or [])]
+    # 受け口の行は 科目（科目シートの順）× 学科の学生（名簿の順）。科目ごとに slots 行ずつ取る。
+    # 名簿や科目を直せば、ここも自動で並び直る（式は行によらず同じなので、1行書いて下へ写せる）
+    n_rows = len(subjects) * slots
     intake = [["出席の受け口", None], ["出席簿つなぎから入る。間に合わないときは黄の欄に手で打つ（手入力が優先）", None], _INTAKE_HEAD]
     lk = lambda c: f"'{LINK_SHEET_ATTENDANCE}'!${c}${FIRST_ROW}:${c}${LAST_ROW}"
-    for k, (sid, subject) in enumerate(pairs):
+    block = f"INT((ROW()-{FIRST_ROW})/{slots})+1"
+    nth = f"MOD(ROW()-{FIRST_ROW},{slots})+1"
+    ros = lambda c: f"{ROSTER_SHEET}!${c}${FIRST_ROW}:${c}${ROSTER_LAST}"
+    sub = lambda c: f"{SUBJECT_SHEET}!${c}${FIRST_ROW}:${c}${FIRST_ROW + 96}"
+    for k in range(n_rows):
         r = FIRST_ROW + k
+        sid = f'=IFERROR(INDEX(FILTER({ros("A")},{ros("D")}=INDEX({sub("A")},{block})),{nth}),"")'
+        subject = f'=IF($A{r}="","",INDEX({sub("B")},{block}))'
         key = f"{lk('A')},$A{r},{lk('B')},$B{r}"
-        linked = [f'=IF(COUNTIFS({key})=0,"",SUMIFS({lk(c)},{key}))' for c in "CDE"]
-        adopted = [f'=IF({m}{r}="",{c}{r},{m}{r})' for c, m in zip("CDE", "FGH")]
+        linked = [f'=IF($A{r}="","",IF(COUNTIFS({key})=0,"",SUMIFS({lk(c)},{key})))' for c in "CDE"]
+        adopted = [f'=IF($A{r}="","",IF({m}{r}="",{c}{r},{m}{r}))' for c, m in zip("CDE", "FGH")]
         intake.append([sid, subject, *linked, None, None, None, *adopted])
-    last_pair = FIRST_ROW + max(len(pairs), 1) - 1
+    last_pair = FIRST_ROW + max(n_rows, 1) - 1
     i = f"$I{FIRST_ROW}"
     intake_red = [(f"I{FIRST_ROW}:K{last_pair}",
-                   f'=OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER($J{FIRST_ROW})),$J{FIRST_ROW}>{i},'
-                   f'$J{FIRST_ROW}+$K{FIRST_ROW}/3>{i})')]
+                   f'=AND($A{FIRST_ROW}<>"",OR(NOT(ISNUMBER({i})),{i}<=0,NOT(ISNUMBER($J{FIRST_ROW})),$J{FIRST_ROW}>{i},'
+                   f'$J{FIRST_ROW}+$K{FIRST_ROW}/3>{i}))'),
+                  (f"F{FIRST_ROW}:H{last_pair}", f'=AND($A{FIRST_ROW}="",F{FIRST_ROW}<>"")')]
     link_rows = FIRST_ROW + len(subjects)
-    return Book({LINKS_SHEET: links, "集計": summary, LINK_SHEET_ATTENDANCE: link, INTAKE_SHEET: intake},
+    return Book({LINKS_SHEET: links, SUMMARY_SHEET: summary, LINK_SHEET_ATTENDANCE: link, INTAKE_SHEET: intake},
                 {LINKS_SHEET: [f"B{FIRST_ROW}:B{link_rows}"],
                  INTAKE_SHEET: [f"F{FIRST_ROW}:H{last_pair}"]},
                 {INTAKE_SHEET: intake_red})
