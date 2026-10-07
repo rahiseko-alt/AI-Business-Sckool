@@ -5,6 +5,7 @@
 入力を省くと data/input/前期成績表.xlsx（AI計算版と出席簿の月別シートが入った成績表）を読む。
 足すシート: 通知表データ・例外（利用者の指示による例外処置を1行書いておく）・特記事項・確認・途中の計算。
 印刷用のページ（grading.export.report_card_pages.add_pages）があれば、それも足す。
+先頭に「使い方」シート（AI なしで成績を直す手順）を足す。
 出力は data/output/成績表_2026前期_通知表入り.xlsx。マクロは使わない。
 式の結果は保存しない（Excel・LibreOffice で開いたときに計算される）。照合は verify_report_card_excel.py で行う。
 """
@@ -18,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from openpyxl import load_workbook  # noqa: E402
 
 from grading.export.report_card_data import EXCEPTIONS_2026_FIRST, add_report_card_data  # noqa: E402
+from grading.export.report_card_guide import SHEETS_NAMED, add_guide  # noqa: E402
 
 INPUT = ROOT / "data" / "input" / "前期成績表.xlsx"
 OUTPUT = ROOT / "data" / "output" / "成績表_2026前期_通知表入り.xlsx"
@@ -32,6 +34,10 @@ def build(source: Path = INPUT, output: Path = OUTPUT) -> Path:
         print("印刷用のページ（report_card_pages）がまだ無いため、データのシートだけを足す")
     else:
         add_pages(wb)
+    missing = [s for s in SHEETS_NAMED if s not in wb.sheetnames]
+    if missing:
+        raise ValueError(f"使い方シートが名前を出すシートが無い: {missing}")
+    add_guide(wb)
     output.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output)
     print(f"{n}人分")
