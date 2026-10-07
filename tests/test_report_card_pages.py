@@ -103,6 +103,8 @@ def test_all_sheet_has_one_break_between_pages_and_a4_portrait_print_setup():
     for name in (ALL_SHEET, ONE_SHEET, CERT_SHEET):
         s = wb[name]
         assert int(s.page_setup.paperSize) == 9 and s.page_setup.orientation == "portrait"
+        # 横は1ページ幅に合わせ、縦は改ページで区切る（本物のデータで右端がはみ出して2ページに割れたため）
+        assert s.sheet_properties.pageSetUpPr.fitToPage and s.page_setup.fitToWidth == 1 and s.page_setup.fitToHeight == 0
         assert s.print_area
     assert ws.print_area == f"'{ALL_SHEET}'!$A$1:$M${4 * PAGE_ROWS}"
 

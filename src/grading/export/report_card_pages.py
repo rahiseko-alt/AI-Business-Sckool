@@ -305,8 +305,11 @@ def _sheet(wb, title: str):
     ws.sheet_view.showGridLines = False
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.orientation = "portrait"
-    ws.page_setup.scale = 100
-    ws.sheet_properties.pageSetUpPr.fitToPage = False
+    # 横は1ページ幅に合わせる（フォントの違いで右端がはみ出して2ページに割れるのを防ぐ）。
+    # 縦は「自動」（0）にして、手で入れた改ページで1人1ページに区切る
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
     m = ws.page_margins
     m.left = m.right = m.top = m.bottom = MARGIN_IN
     m.header = m.footer = HEADER_IN
