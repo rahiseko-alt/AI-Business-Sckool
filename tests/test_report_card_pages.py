@@ -79,9 +79,9 @@ def _calc(wb, tmp_path):
 
 def _grade_rows(ws, top):
     rows = []
-    for i in range(13):
+    for i in range(12):
         r = top + R_SLOT + i
-        rows.append(tuple(ws.cell(r, c).value for c in range(1, 7)))
+        rows.append(tuple(ws.cell(r, c).value for c in (1, 3, 4, 5, 6, 7)))
     return rows
 
 
@@ -106,7 +106,7 @@ def test_all_sheet_has_one_break_between_pages_and_a4_portrait_print_setup():
         # 横は1ページ幅に合わせ、縦は改ページで区切る（本物のデータで右端がはみ出して2ページに割れたため）
         assert s.sheet_properties.pageSetUpPr.fitToPage and s.page_setup.fitToWidth == 1 and s.page_setup.fitToHeight == 0
         assert s.print_area
-    assert ws.print_area == f"'{ALL_SHEET}'!$A$1:$M${4 * PAGE_ROWS}"
+    assert ws.print_area == f"'{ALL_SHEET}'!$A$1:$O${4 * PAGE_ROWS}"
 
 
 def test_default_is_sixty_pages_that_differ_only_in_the_data_row():
@@ -126,7 +126,7 @@ def test_black_rows_and_stamp_are_conditional_formats_on_report_cards_only():
     rules = formulas(wb[ALL_SHEET])
     black = [(ref, f) for ref, f in rules if f and "<>\"A\"" in f[0]]
     assert len(black) == 4
-    assert black[0][0] == f"A{1 + R_SLOT}:F{R_SLOT + 13}"
+    assert black[0][0] == f"A{1 + R_SLOT}:G{R_SLOT + 12}"
     assert any(f == ['"不合格"'] for _, f in rules)
     assert any(f and "<>\"A\"" in f[0] for _, f in formulas(wb[ONE_SHEET]))
     cert = formulas(wb[CERT_SHEET])
@@ -141,16 +141,17 @@ def test_each_page_shows_its_student(tmp_path):
     ws = _calc(add_pages(_book(), students=4), tmp_path)[ALL_SHEET]
     tops = [1 + k * PAGE_ROWS for k in range(4)]
     p = lambda top, i, c: ws.cell(top + R_PROFILE + i, c).value
-    assert [(p(t, 0, 2), p(t, 2, 2), p(t, 3, 2), p(t, 0, 9)) for t in tops] == [
+    assert [(p(t, 0, 2), p(t, 0, 5), p(t, 1, 5), p(t, 0, 13)) for t in tops] == [
         ("国際ビジネス科", "ヤマダ タロウ", "TARO YAMADA", "AIBC26001"),
         ("総合ビジネス科", "ムハンマド", LONG_NAME, "AIBC26002"),
         ("国際ビジネス科", "サトウ ハナ", "HANA SATO", "AIBC26003"),
         ("国際ビジネス科", "スズキ ジロウ", "JIRO SUZUKI", "AIBC26004")]
-    assert ws.cell(1 + R_TITLE, 2).value == "通知表"
-    assert ws.cell(1, 8).value == "この書類は成績証明書ではありません"
+    assert ws.cell(1 + R_TITLE, 3).value == "通　知　表"
+    assert ws.cell(1, 11).value == "この書類は成績証明書ではありません"
     today = dt.date.today()
-    assert ws.cell(1 + R_PROFILE + 1, 9).value.date() == today
-    assert ws.cell(1 + R_FOOT, 9).value.date() == today
+    assert ws.cell(1 + R_PROFILE + 1, 13).value.date() == today
+    assert ws.cell(1 + R_FOOT, 9).value == f"発行年月日　{today.year}年{today.month}月{today.day}日"
+    assert ws.cell(1 + R_PROFILE + 2, 2).value == "2026年度 前期"
     assert ws.cell(1 + R_FOOT, 1).value == "記載の期間における出席及び成績は、上記のとおりです。"
 
 
@@ -159,15 +160,15 @@ def test_subjects_are_packed_and_shown_in_display_order(tmp_path):
     ws = _calc(add_pages(_book(), students=4), tmp_path)[ALL_SHEET]
     # 授業科目・点数・評定・形態・設定・取得
     assert _filled(_grade_rows(ws, 1)) == [
-        ("ビジネス日本語Ⅰ", 85.04, "A", "講義", 2, 2), ("マーケティングⅠ", 31.1, "E", "講義", 2, "－"),
-        ("AI演習（実践）Ⅰ", 70.05, "B", "講義", 3, 3)]
+        ("ビジネス日本語Ⅰ", 85, "A", "講義", 2, 2), ("マーケティングⅠ", 31.1, "E", "講義", 2, "－"),
+        ("AI演習（実践）Ⅰ", 70.1, "B", "講義", 3, 3)]
     assert len(_filled(_grade_rows(ws, 1)[:3])) == 3
-    assert ws.cell(1 + R_SLOT, 2).number_format == "0.0"
+    assert ws.cell(1 + R_SLOT, 3).number_format == "General"
     exception = _filled(_grade_rows(ws, 1 + PAGE_ROWS))[0]
     assert exception == ("ビジネス日本語Ⅰ", None, "F", "講義", 2, None)
-    assert [ws.cell(1 + R_SUM1, c).value for c in (1, 5, 6)] == ["前期計", 7, 5]
-    assert [ws.cell(1 + R_TOTAL, c).value for c in (1, 5, 6)] == ["1年 合計取得単位数", 7, 5]
-    assert [ws.cell(1 + R_TOTAL, c).value for c in (8, 12, 13)] == ["2年 合計取得単位数", None, None]
+    assert [ws.cell(1 + R_SUM1, c).value for c in (1, 6, 7)] == ["前期計", 7, 5]
+    assert [ws.cell(1 + R_TOTAL, c).value for c in (1, 6, 7)] == ["1年 合計取得単位数", 7, 5]
+    assert [ws.cell(1 + R_TOTAL, c).value for c in (9, 14, 15)] == ["2年 合計取得単位数", None, None]
 
 
 @needs_calc
@@ -175,15 +176,15 @@ def test_attendance_remarks_stamp_and_check_note(tmp_path):
     ws = _calc(add_pages(_book(), students=4), tmp_path)[ALL_SHEET]
     top1, top2, top3, top4 = (1 + k * PAGE_ROWS for k in range(4))
     att = [tuple(ws.cell(top1 + R_ATT + i, c).value for c in (1, 2, 3, 5)) for i in range(3)]
-    assert att[0][:3] == ("前期", 120, pytest.approx(110.6666666))
+    assert att[0][:3] == ("前期", 120, 110.7)
     assert att[0][3] == pytest.approx(110.6666666 / 120)
     assert att[1] == ("後期", None, None, None)
     assert att[2][:2] == ("年間合計", 120)
-    assert ws.cell(top1 + R_ATT, 3).number_format == "0.0" and ws.cell(top1 + R_ATT, 5).number_format == "0.0%"
-    assert [ws.cell(top1 + R_ATT + i, 9).value for i in range(3)] == [None] * 3          # 2年は空欄
+    assert ws.cell(top1 + R_ATT, 3).number_format == "General" and ws.cell(top1 + R_ATT, 5).number_format == "0.0%"
+    assert [ws.cell(top1 + R_ATT + i, 10).value for i in range(3)] == [None] * 3          # 2年は空欄
     assert ws.cell(top1 + R_REM, 1).value == "該当なし"
     assert ws.cell(top2 + R_REM, 1).value == "日本語能力強化演習は例外処置"
-    stamps = [ws.cell(t + R_TITLE, 11).value for t in (top1, top2, top3, top4)]
+    stamps = [ws.cell(t + R_TITLE, 13).value for t in (top1, top2, top3, top4)]
     assert stamps == ["不合格", "不合格", None, None]
     notes = [ws.cell(t + R_TITLE, 1).value for t in (top1, top2, top3, top4)]
     assert notes == [None, None, None, "要確認あり（2件）"]
@@ -198,16 +199,16 @@ def test_single_pages_follow_the_entered_id(tmp_path):
     v = _calc(wb, tmp_path)
     one, cert = v[ONE_SHEET], v[CERT_SHEET]
     top = 3
-    assert one.cell(top + R_PROFILE + 3, 2).value == LONG_NAME
-    assert one.cell(top + R_TITLE, 2).value == "通知表" and one.cell(top + R_TITLE, 11).value == "不合格"
-    assert one.cell(top, 8).value == "この書類は成績証明書ではありません"
+    assert one.cell(top + R_PROFILE + 1, 5).value == LONG_NAME
+    assert one.cell(top + R_TITLE, 3).value == "通　知　表" and one.cell(top + R_TITLE, 13).value == "不合格"
+    assert one.cell(top, 11).value == "この書類は成績証明書ではありません"
     assert one.cell(top + R_REM, 1).value == "日本語能力強化演習は例外処置"
-    assert cert.cell(top + R_TITLE, 2).value == "成績証明書"
-    assert cert.cell(top + R_TITLE, 11).value is None
-    assert cert.cell(top, 8).value is None
-    assert cert.cell(top + R_PROFILE, 9).value == "AIBC26001"
+    assert cert.cell(top + R_TITLE, 3).value == "成　績　証　明　書"
+    assert cert.cell(top + R_TITLE, 13).value is None
+    assert cert.cell(top, 11).value is None
+    assert cert.cell(top + R_PROFILE, 13).value == "AIBC26001"
     assert _filled(_grade_rows(cert, top))[1] == ("マーケティングⅠ", 31.1, "E", "講義", 2, "－")
-    assert [cert.cell(top + R_SUM1, c).value for c in (5, 6)] == [7, 5]
+    assert [cert.cell(top + R_SUM1, c).value for c in (6, 7)] == [7, 5]
     assert cert.cell(top + R_ATT, 2).value == 120
 
 
@@ -218,12 +219,12 @@ def test_unknown_id_shows_check_in_red_and_blank_id_shows_nothing(tmp_path):
     v = _calc(wb, tmp_path)
     one, cert = v[ONE_SHEET], v[CERT_SHEET]
     top = 3
-    assert one.cell(top + R_PROFILE, 9).value == "要確認"
-    assert one.cell(top + R_PROFILE + 3, 2).value == "要確認"
+    assert one.cell(top + R_PROFILE, 13).value == "要確認"
+    assert one.cell(top + R_PROFILE + 1, 5).value == "要確認"
     assert one.cell(top + R_TITLE, 1).value.startswith("要確認")
     assert one.cell(top + R_TITLE, 1).font.color.rgb.endswith("C00000")
     assert _filled(_grade_rows(one, top)) == []
-    assert cert.cell(top + R_PROFILE, 9).value is None          # 未入力は空欄（要確認にしない）
+    assert cert.cell(top + R_PROFILE, 13).value is None          # 未入力は空欄（要確認にしない）
 
 
 @needs_calc
@@ -243,3 +244,11 @@ def test_all_sheet_prints_one_page_per_student(tmp_path):
     except ImportError:
         pages = len(re.findall(rb"/Type\s*/Page\b", pdf.read_bytes()))
     assert pages == 60
+
+
+@needs_calc
+def test_thirteenth_subject_is_flagged_because_the_page_has_twelve_rows(tmp_path):
+    many = [(f"科目{i}", "講義", 80, "B", 1, 1) for i in range(13)]
+    students = [("AIBC26001", "TARO", "タロウ", "国際ビジネス科", many, (13, 13, 30, 30, 1, False, 0, ""))]
+    ws = _calc(add_pages(_book(students), students=1), tmp_path)[ALL_SHEET]
+    assert ws.cell(1 + R_TITLE, 1).value.startswith("要確認")
