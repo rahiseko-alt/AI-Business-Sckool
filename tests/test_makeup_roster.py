@@ -33,3 +33,10 @@ def test_workbook_has_summary_and_one_sheet_per_subject():
     assert [ws.cell(6, c).value for c in range(1, 7)] == [1, "国際ビジネス科", "AIBC26001", "NAME AIBC26001",
                                                           "カナ AIBC26001", 48.0]
     assert wb["一覧"]["B4"].value == 1
+
+
+def test_excluded_students_are_left_out_of_every_subject():
+    cards = [_card("国際ビジネス科", "AIBC26008", [_line("A", "E"), _line("B", "E")]),
+             _card("国際ビジネス科", "AIBC26009", [_line("A", "E")])]
+    t = targets(cards, frozenset({"AIBC26008"}))
+    assert list(t) == ["A"] and [c.student_id for c, _ in t["A"]] == ["AIBC26009"]

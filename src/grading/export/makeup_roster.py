@@ -19,10 +19,13 @@ COLUMNS = (("No.", 5), ("学科", 14), ("学籍番号", 12), ("氏名", 34), ("�
            ("前期の点数", 9), ("出欠", 7), ("追試の点数", 9), ("備考", 14))
 
 
-def targets(cards: Sequence[Card]) -> dict[str, list[tuple[Card, object]]]:
-    """科目名 → [(学生, 前期の点数)]。評定 E の科目だけ。科目は通知表の順（最初に出た順）、学生は学科→学籍番号。"""
+def targets(cards: Sequence[Card], exclude: frozenset[str] = frozenset()) -> dict[str, list[tuple[Card, object]]]:
+    """科目名 → [(学生, 前期の点数)]。評定 E の科目だけ。科目は通知表の順（最初に出た順）、学生は学科→学籍番号。
+    exclude: 追試を受けない学生の学籍番号（全科目から外す）。"""
     out: dict[str, list] = {}
     for c in cards:
+        if c.student_id in exclude:
+            continue
         for l in c.lines:
             out.setdefault(l.name, [])
             if not l.withheld and l.grade == "E":
@@ -38,11 +41,11 @@ def _sheet_title(name: str) -> str:
     return name[:31]
 
 
-def build(cards: Sequence[Card], year: str = "2026年度"):
+def build(cards: Sequence[Card], year: str = "2026年度", exclude: frozenset[str] = frozenset()):
     wb = Workbook()
     summary = wb.active
     summary.title = "一覧"
-    t = targets(cards)
+    t = targets(cards, exclude)
     summary["A1"] = f"{year} 前期 追試 対象者数（評定 E の科目）"
     summary["A1"].font = Font(name=FONT, bold=True, size=13)
     for c, h in enumerate(("科目", "人数"), 1):
