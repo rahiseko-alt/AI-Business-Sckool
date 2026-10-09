@@ -20,7 +20,7 @@ COLS, ROWS = 2, 6                      # 1枚 12面
 LABEL_W_MM, LABEL_H_MM = 86.4, 42.3
 TOP_MM, LEFT_MM = 21.5, 18.6
 # 1面を5行で作る（上の余白・3行・下の余白）。和は 42.3mm＝119.9pt
-LINE_PT = (22, 25, 25, 28, 19.9)
+LINE_PT = (18, 24, 24, 36, 17.9)   # 3行目は長い氏名が2行に折り返せる高さ
 FONT = "游ゴシック"
 YELLOW = PatternFill("solid", fgColor="FFFFFF00")
 HEAD = PatternFill("solid", fgColor="FFE8E8E8")
@@ -68,10 +68,11 @@ def build(students: list[tuple[str, str, str]]):
         lines = (f'=IF({ref("B")}="","","{YEAR}　"&{ref("A")})',
                  f'=IF({ref("B")}="","",{ref("B")})',
                  f'=IF({ref("B")}="","",{ref("C")}&IF({ref("D")}="","","　"&{ref("D")}))')
-        for i, (text, size) in enumerate(zip(lines, (11, 14, 13)), 1):
+        for i, (text, size) in enumerate(zip(lines, (11, 14, 11)), 1):
             cell = labels.cell(r0 + i, col, text)
             cell.font = Font(name=FONT, size=size, bold=i > 1)
-            cell.alignment = Alignment(horizontal="center", vertical="center", shrink_to_fit=True)
+            # 氏名の行は長ければ2行に折り返す（縮めると読めないほど小さくなるため）。ほかの行は縮めて1行に収める
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=i == 3, shrink_to_fit=i != 3)
     for p in range(pages):
         for i, h in enumerate(LINE_PT * ROWS):
             labels.row_dimensions[1 + p * ROWS * len(LINE_PT) + i].height = h
